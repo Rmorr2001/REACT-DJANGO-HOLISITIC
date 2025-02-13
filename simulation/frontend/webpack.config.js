@@ -1,12 +1,10 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Use import.meta.url to get the __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  mode: 'development',
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, './static/frontend'),
@@ -19,18 +17,18 @@ export default {
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env', '@babel/preset-react'],
-            sourceType: 'module',
-          },
         },
       },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader']
+      }
     ],
-  },
-  resolve: {
-    extensions: ['.js', '.jsx'],
   },
   optimization: {
     minimize: true,
   },
+  resolve: {
+    extensions: ['.js', '.jsx'],
+  }
 };
