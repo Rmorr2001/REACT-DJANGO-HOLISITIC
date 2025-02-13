@@ -1,0 +1,145 @@
+.custom-node {
+  background: linear-gradient(to bottom right, #f8faff, #e6f0ff);
+  border: 2px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 250px;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.custom-node:hover {
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.node-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e40af;
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #bfdbfe;
+}
+
+.servers-container {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  min-height: 20px;
+}
+
+.server-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  animation: pulse 2s infinite;
+}
+
+.metrics-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(239, 246, 255, 0.6);
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.metric-label {
+  color: #1e40af;
+  font-size: 0.9rem;
+}
+
+.metric-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-number {
+  font-family: monospace;
+  color: #1e3a8a;
+}
+
+.metric-dist {
+  font-size: 0.8rem;
+  color: #3b82f6;
+}
+
+/* Handle styling */
+.custom-node .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #60a5fa;
+  border: 2px solid #3b82f6;
+  opacity: 0;  /* Hide by default */
+  transition: opacity 0.2s;
+}
+
+/* Only show handles when actually dragging a connection */
+.react-flow__handle.connectable {
+  opacity: 0;
+}
+
+.react-flow__handle.connectable:hover,
+.react-flow__handle.connecting {
+  opacity: 1;
+}
+
+/* Handle positions */
+.custom-node .react-flow__handle-top {
+  top: -6px;
+}
+
+.custom-node .react-flow__handle-bottom {
+  bottom: -6px;
+}
+
+.custom-node .react-flow__handle-left {
+  left: -6px;
+}
+
+/* Remove the extra dot from flow arrows */
+.flow-arrow {
+  display: none;
+}
+
+/* Animation for server dots */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+/* Edge styling */
+.react-flow__edge-path {
+  stroke: #60a5fa;
+  stroke-width: 2;
+}
+
+.react-flow__edge.animated path {
+  stroke-dasharray: 5;
+  animation: dashdraw 1s linear infinite;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 10;
+  }
+}
