@@ -23,12 +23,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-lyxo8^r^*zhwq#yh&3r0inxma$z*hpkjr4bwdkfhk^2(zp_t8-'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 # Add to your existing ALLOWED_HOSTS
 ALLOWED_HOSTS = ["*"]  # For development only. In production, specify your Cloud Run domain
 
 # Add these security settings
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.run.app",  # Allows Cloud Run domains
+]
 
 
 # Application definition
