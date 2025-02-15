@@ -45,13 +45,10 @@ RUN python manage.py collectstatic --noinput
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=simulation_core.settings
 
-# Expose port
-EXPOSE 8000
-
-# Create start script
+# Create start script that uses PORT environment variable
 RUN echo '#!/bin/bash\n\
 python manage.py migrate\n\
-python manage.py runserver 0.0.0.0:8000\n\
+python manage.py runserver 0.0.0.0:${PORT:-8080}\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Start command
