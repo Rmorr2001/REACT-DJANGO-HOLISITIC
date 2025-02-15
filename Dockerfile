@@ -23,6 +23,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -46,10 +47,14 @@ ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=simulation_core.settings
 ENV PORT=8080
 
-# Create start script
+# Create enhanced start script with debugging
 RUN echo '#!/bin/bash\n\
+echo "Starting application..."\n\
+echo "Current PORT setting: $PORT"\n\
 python manage.py migrate\n\
-gunicorn simulation_core.wsgi:application --bind 0.0.0.0:$PORT\n\
+echo "Migrations complete"\n\
+echo "Starting Gunicorn on port $PORT..."\n\
+gunicorn simulation_core.wsgi:application --bind 0.0.0.0:$PORT --timeout 120 --workers 2 --access-logfile - --error-logfile - --log-level debug\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Start command
