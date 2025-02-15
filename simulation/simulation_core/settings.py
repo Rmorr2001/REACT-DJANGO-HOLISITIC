@@ -29,9 +29,6 @@ DEBUG = False
 ALLOWED_HOSTS = ["*"]  # For development only. In production, specify your Cloud Run domain
 
 # Add these security settings
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.run.app",  # Allows Cloud Run domains
-]
 
 
 # Application definition

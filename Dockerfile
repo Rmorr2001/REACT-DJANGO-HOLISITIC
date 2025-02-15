@@ -32,6 +32,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY simulation/ .
 
+# Create staticfiles directory
+RUN mkdir -p staticfiles
+
 # Copy built frontend files from frontend-build stage
 COPY --from=frontend-build /app/frontend/static/frontend ./frontend/static/frontend
 
