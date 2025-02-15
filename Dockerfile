@@ -23,7 +23,6 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -32,9 +31,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY simulation/ .
-
-# Create staticfiles directory
-RUN mkdir -p staticfiles
 
 # Copy built frontend files from frontend-build stage
 COPY --from=frontend-build /app/frontend/static/frontend ./frontend/static/frontend
@@ -45,16 +41,14 @@ RUN python manage.py collectstatic --noinput
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=simulation_core.settings
-ENV PORT=8080
 
-# Create enhanced start script with debugging
+# Expose port
+EXPOSE 8000
+
+# Create start script
 RUN echo '#!/bin/bash\n\
-echo "Starting application..."\n\
-echo "Current PORT setting: $PORT"\n\
 python manage.py migrate\n\
-echo "Migrations complete"\n\
-echo "Starting Gunicorn on port $PORT..."\n\
-gunicorn simulation_core.wsgi:application --bind 0.0.0.0:$PORT --timeout 120 --workers 2 --access-logfile - --error-logfile - --log-level debug\n\
+python manage.py runserver 0.0.0.0:8000\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Start command
