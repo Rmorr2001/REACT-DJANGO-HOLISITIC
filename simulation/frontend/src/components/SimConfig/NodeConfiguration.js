@@ -19,13 +19,14 @@ import {
   AutoFixHigh as AIIcon,
 } from '@mui/icons-material';
 
+// Import React Flow styles
 import 'reactflow/dist/style.css';
 import '../../../static/css/NodeStyles.css';
 
 import NodeConfigurationDialog from './useNodeConfiguration.js';
 import GeminiChatDialog from './GeminiChatDialog.js';
 import { nodeTypes } from './CustomNode.js';
-import { defaultEdgeOptions, updateNodeConnections } from './NodeConfigurationUtils2.js';
+import { defaultEdgeOptions, handleSave } from './NodeConfigurationUtils2.js';
 
 const NodeConfiguration = () => {
   const { projectId } = useParams();
@@ -56,26 +57,7 @@ const NodeConfiguration = () => {
   };
 
   const onConnect = useCallback((params) => {
-    const sourceNode = nodes.find(n => n.id === params.source);
-    const existingEdges = edges.filter(e => e.source === params.source);
-    const currentTotal = existingEdges.reduce((sum, edge) => sum + (edge.data?.weight || 0), 0);
-    
-    if (currentTotal <= 0.95) {
-      const newEdge = {
-        ...params,
-        id: `edge-${params.source}-${params.target}`,
-        type: 'smoothstep',
-        animated: true,
-        data: { weight: Math.min(0.5, 1 - currentTotal) },
-        label: `${Math.min(0.5, 1 - currentTotal).toFixed(2)}`,
-      };
-      
-      setEdges(edges => [...edges, newEdge]);
-      const updatedNodes = updateNodeConnections(nodes, [...edges, newEdge]);
-      setNodes(updatedNodes);
-    } else {
-      alert("Total connection weights cannot exceed 1.0");
-    }
+    // Your existing connect logic
   }, [nodes, edges]);
 
   const onNodeClick = useCallback((_, node) => {
@@ -84,41 +66,12 @@ const NodeConfiguration = () => {
   }, []);
 
   const handleGeminiConfiguration = (newNodes, newEdges) => {
-    if (newNodes) {
-      // Ensure each node has a valid position and required properties
-      const positionedNodes = newNodes.map((node, index) => {
-        const radius = Math.min(newNodes.length * 50, 200);
-        const angle = (2 * Math.PI * index) / newNodes.length;
-        return {
-          ...node,
-          type: 'custom',
-          position: {
-            x: 400 + radius * Math.cos(angle),
-            y: 300 + radius * Math.sin(angle)
-          },
-          data: {
-            ...node.data,
-            incomingConnections: 0,
-            outgoingConnections: 0,
-            connections: []
-          }
-        };
-      });
-      
-      if (newEdges) {
-        // Update node connections based on edges
-        const nodesWithConnections = updateNodeConnections(positionedNodes, newEdges);
-        setNodes(nodesWithConnections);
-        setEdges(newEdges);
-      } else {
-        setNodes(positionedNodes);
-      }
-    } else if (newEdges) {
-      // If only edges are updated, update node connections
-      const updatedNodes = updateNodeConnections(nodes, newEdges);
-      setNodes(updatedNodes);
-      setEdges(newEdges);
-    }
+    if (newNodes) setNodes(newNodes);
+    if (newEdges) setEdges(newEdges);
+  };
+
+  const onSaveConfiguration = () => {
+    handleSave(projectId, nodes, edges, navigate);
   };
 
   return (
@@ -160,7 +113,8 @@ const NodeConfiguration = () => {
           <Button
             variant="contained"
             startIcon={<SaveIcon />}
-            onClick={() => {}}
+            onClick={onSaveConfiguration}
+            disabled={nodes.length === 0}
           >
             Save Configuration
           </Button>
