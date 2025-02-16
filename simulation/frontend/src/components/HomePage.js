@@ -7,6 +7,7 @@ import NewProject from "./NewProject.js";
 import MyProjects from "./MyProjects.js";
 import NodeConfiguration from "./SimConfig/NodeConfiguration.js";
 import Dashboard from "./Dashboard.js";
+import Portfolio from "./about.js"
 
 function Home() {
   const navigate = useNavigate();
@@ -44,6 +45,15 @@ function Home() {
           >
             View My Projects
           </Button>
+
+          <Button
+            variant="outlined"
+            size="large" 
+            onClick={() => navigate('/about')}
+          >
+            About the Developer
+          </Button>
+
         </Box>
       </Box>
     </Container>
@@ -55,11 +65,13 @@ function HomePage() {
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<Portfolio />} />
           <Route path="/new-project" element={<NewProject />} />
           <Route path="/projects" element={<MyProjects />} />
           <Route path="/projects/:projectId/nodes" element={<NodeConfiguration />} />
           <Route path="/projects/:projectId/simulate" element={<Dashboard />} />
           <Route path="/projects/:projectId/results" element={<Dashboard mode="results" />} />
+          
         </Routes>
       </Router>
   );
