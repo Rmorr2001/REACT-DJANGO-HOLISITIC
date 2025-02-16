@@ -71,32 +71,46 @@ export const updateNodeConnections = (nodes, edges) => {
 
 export const fetchProjectData = async (projectId, setEdges, setNodes, updateNodeConnections) => {
   try {
-    const response = await fetch(`/api/projects/${projectId}/nodes/`);
-    if (response.ok) {
-      const data = await response.json();
-      
-      const convertedNodes = data.nodes.map((node, index) => ({
-        id: `node-${index}`,
-        type: 'custom',
-        position: { x: 200 + index * 200, y: 200 },
-        data: {
-          name: node.node_name,
-          serviceDist: node.service_distribution.toLowerCase(),
-          serviceRate: node.service_rate,
-          numberOfServers: node.number_of_servers,
-          arrivalDist: node.arrival_distribution.toLowerCase(),
-          arrivalRate: node.arrival_rate,
-          incomingConnections: 0,
-          outgoingConnections: 0
-        }
-      }));
+    const projectResponse = await fetch(`/api/projects/${projectId}/`);
+    if (!projectResponse.ok) {
+      throw new Error(`Failed to fetch project: ${projectResponse.statusText}`);
+    }
+    
+    const nodesResponse = await fetch(`/api/projects/${projectId}/nodes/`);
+    if (!nodesResponse.ok) {
+      throw new Error(`Failed to fetch nodes: ${nodesResponse.statusText}`);
+    }
 
-      const convertedEdges = [];
-      data.nodes.forEach((node, fromIndex) => {
+    const data = await nodesResponse.json();
+    console.log('Fetched node data:', data); // Debug log
+    
+    if (!data.nodes || !Array.isArray(data.nodes)) {
+      throw new Error('Invalid node data received from server');
+    }
+
+    const convertedNodes = data.nodes.map((node, index) => ({
+      id: `node-${index}`,
+      type: 'custom',
+      position: { x: 200 + index * 200, y: 200 },
+      data: {
+        name: node.node_name,
+        serviceDist: node.service_distribution.toLowerCase(),
+        serviceRate: node.service_rate,
+        numberOfServers: node.number_of_servers,
+        arrivalDist: node.arrival_distribution.toLowerCase(),
+        arrivalRate: node.arrival_rate,
+        incomingConnections: 0,
+        outgoingConnections: 0
+      }
+    }));
+
+    const convertedEdges = [];
+    data.nodes.forEach((node, fromIndex) => {
+      if (node.routing_probabilities) {
         node.routing_probabilities.forEach((probability, toIndex) => {
           if (probability > 0) {
             convertedEdges.push({
-              id: `edge-${fromIndex}-${toIndex}`,
+              id: `edge-node-${fromIndex}-node-${toIndex}`,
               source: `node-${fromIndex}`,
               target: `node-${toIndex}`,
               type: 'smoothstep',
@@ -106,52 +120,71 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
             });
           }
         });
-      });
+      }
+    });
 
-      setEdges(convertedEdges);
-      const nodesWithConnections = updateNodeConnections(convertedNodes, convertedEdges);
-      setNodes(nodesWithConnections);
-    }
+    setEdges(convertedEdges);
+    const nodesWithConnections = updateNodeConnections(convertedNodes, convertedEdges);
+    setNodes(nodesWithConnections);
+    return true;
   } catch (error) {
     console.error('Error fetching project data:', error);
+    throw error;
   }
 };
 
 export const handleSave = async (projectId, nodes, edges, navigate) => {
   try {
+    console.log('Saving nodes:', nodes); // Debug log
+    console.log('Saving edges:', edges); // Debug log
+
     const apiNodes = nodes.map(node => {
+      // Create routing probabilities array initialized with zeros
       const routingProbabilities = new Array(nodes.length).fill(0);
+
+      // Fill in the actual probabilities from edges
       edges
         .filter(edge => edge.source === node.id)
         .forEach(edge => {
           const targetIndex = parseInt(edge.target.split('-')[1]);
-          routingProbabilities[targetIndex] = edge.data.weight;
+          routingProbabilities[targetIndex] = parseFloat(edge.data.weight) || 0;
         });
 
       return {
         node_name: node.data.name,
-        service_distribution: capitalizeFirst(node.data.serviceDist),
-        service_rate: node.data.serviceRate,
-        number_of_servers: node.data.numberOfServers,
-        arrival_distribution: capitalizeFirst(node.data.arrivalDist),
-        arrival_rate: node.data.arrivalRate,
+        service_distribution: node.data.serviceDist.charAt(0).toUpperCase() + node.data.serviceDist.slice(1),
+        service_rate: parseFloat(node.data.serviceRate),
+        number_of_servers: parseInt(node.data.numberOfServers),
+        arrival_distribution: node.data.arrivalDist.charAt(0).toUpperCase() + node.data.arrivalDist.slice(1),
+        arrival_rate: parseFloat(node.data.arrivalRate),
         routing_probabilities: routingProbabilities
       };
     });
+
+    console.log('Formatted API nodes:', apiNodes); // Debug log
 
     const response = await fetch(`/api/projects/${projectId}/nodes/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value
       },
-      body: JSON.stringify({ nodes: apiNodes }),
+      body: JSON.stringify({ nodes: apiNodes })
     });
 
-    if (response.ok) {
-      navigate(`/projects/${projectId}/simulate`);
+    const responseData = await response.json();
+    console.log('Server response:', responseData); // Debug log
+
+    if (!response.ok) {
+      throw new Error(responseData.error || 'Failed to save nodes');
     }
+
+    navigate(`/projects/${projectId}/simulate`);
+    return true;
   } catch (error) {
     console.error('Error saving nodes:', error);
+    alert(`Error saving configuration: ${error.message}`);
+    return false;
   }
 };
 

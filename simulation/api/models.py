@@ -1,17 +1,26 @@
 
 from django.db import models
-
+from django.utils import timezone
 # Create your models here.
 
 class Project(models.Model):
     name = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     results = models.JSONField(default=dict, blank=True)
     
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.created_at = timezone.now()
+        self.updated_at = timezone.now()
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['-updated_at']
 
 class Node(models.Model):
     DISTRIBUTION_CHOICES = [

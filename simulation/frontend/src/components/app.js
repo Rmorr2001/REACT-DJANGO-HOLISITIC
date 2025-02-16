@@ -1,11 +1,10 @@
-// app.js
 import React from "react";
 import { createRoot } from "react-dom/client";
 import HomePage from "./HomePage.js";
 
 function App() {
   return (
-    <div className="center">
+    <div className="app-container">
       <HomePage />
     </div>
   );
