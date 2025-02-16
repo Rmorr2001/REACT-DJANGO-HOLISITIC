@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
@@ -12,6 +12,7 @@ import {
   Typography,
   Button,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -19,14 +20,13 @@ import {
   AutoFixHigh as AIIcon,
 } from '@mui/icons-material';
 
-// Import React Flow styles
 import 'reactflow/dist/style.css';
 import '../../../static/css/NodeStyles.css';
 
 import NodeConfigurationDialog from './useNodeConfiguration.js';
 import GeminiChatDialog from './GeminiChatDialog.js';
-import { nodeTypes } from './CustomNode.js';
-import { defaultEdgeOptions, handleSave } from './NodeConfigurationUtils2.js';
+import { nodeTypes, updateNodeConnections } from './CustomNode.js';
+import { defaultEdgeOptions, onConnect, handleSave, fetchProjectData } from './NodeConfigurationUtils2.js';
 
 const NodeConfiguration = () => {
   const { projectId } = useParams();
@@ -36,6 +36,32 @@ const NodeConfiguration = () => {
   const [selectedNode, setSelectedNode] = useState(null);
   const [showNodeDialog, setShowNodeDialog] = useState(false);
   const [showGeminiDialog, setShowGeminiDialog] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadProjectData = async () => {
+      // Validate projectId
+      if (!projectId || projectId === 'undefined') {
+        setError('Invalid project ID');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        console.log('Loading project with ID:', projectId); // Debug log
+        await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
+      } catch (error) {
+        console.error('Error loading project:', error);
+        setError(error.message || 'Failed to load project data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProjectData();
+  }, [projectId]);
 
   const addNode = () => {
     const newNode = {
@@ -56,10 +82,6 @@ const NodeConfiguration = () => {
     setNodes(nodes => [...nodes, newNode]);
   };
 
-  const onConnect = useCallback((params) => {
-    // Your existing connect logic
-  }, [nodes, edges]);
-
   const onNodeClick = useCallback((_, node) => {
     setSelectedNode(node);
     setShowNodeDialog(true);
@@ -70,9 +92,53 @@ const NodeConfiguration = () => {
     if (newEdges) setEdges(newEdges);
   };
 
-  const onSaveConfiguration = () => {
-    handleSave(projectId, nodes, edges, navigate);
+  const onSaveConfiguration = async () => {
+    if (!projectId || projectId === 'undefined') {
+      setError('Invalid project ID');
+      return;
+    }
+
+    const success = await handleSave(projectId, nodes, edges, navigate);
+    if (success) {
+      setChatHistory([]);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ 
+        width: '100%',
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ 
+        width: '100%',
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: 2
+      }}>
+        <Typography color="error">{error}</Typography>
+        <Button 
+          variant="contained" 
+          onClick={() => navigate('/projects')}
+        >
+          Return to Projects
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box 
@@ -92,10 +158,10 @@ const NodeConfiguration = () => {
           background: 'white'
         }}
       >
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6">
           Configure Simulation Nodes
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
           <Button
             variant="outlined"
             startIcon={<AddIcon />}
@@ -124,9 +190,17 @@ const NodeConfiguration = () => {
       <Box 
         sx={{ 
           flexGrow: 1,
+          minHeight: 0,
           position: 'relative',
-          width: '100%',
-          height: '100%'
+          '& .react-flow__container': {
+            height: '100%'
+          },
+          '& .react-flow__viewport': {
+            height: '100%'
+          },
+          '& .react-flow': {
+            height: '100%'
+          }
         }}
       >
         <ReactFlow
@@ -134,7 +208,7 @@ const NodeConfiguration = () => {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
+          onConnect={params => onConnect(params, nodes, edges, setEdges, setNodes, updateNodeConnections)}
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
@@ -159,6 +233,8 @@ const NodeConfiguration = () => {
         open={showGeminiDialog}
         onClose={() => setShowGeminiDialog(false)}
         onApplyConfiguration={handleGeminiConfiguration}
+        messages={chatHistory}
+        setMessages={setChatHistory}
       />
     </Box>
   );

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Project, Node
+from django.utils import timezone
 
 class NodeSerializer(serializers.ModelSerializer):
     routing_probabilities = serializers.ListField(
@@ -26,20 +27,19 @@ class NodeSerializer(serializers.ModelSerializer):
                 )
         return data
 
+
+
+
+
 class ProjectSerializer(serializers.ModelSerializer):
-    nodes = NodeSerializer(many=True, read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = Project
-        fields = [
-            'id', 'name', 'description', 'created_at',
-            'updated_at', 'results', 'nodes'
-        ]
+        fields = ['id', 'name', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
-class ProjectSerializer(serializers.ModelSerializer):
-    nodes = NodeSerializer(many=True, read_only=True)
-    results = serializers.JSONField(read_only=True)
-    
-    class Meta:
-        model = Project
-        fields = ['id', 'name', 'description', 'nodes', 'results']
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return representation

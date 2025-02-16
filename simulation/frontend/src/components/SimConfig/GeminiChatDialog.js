@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogContent,
   TextField,
-  Button,
   Typography,
   Box,
   IconButton,
@@ -17,73 +16,95 @@ import {
 
 const API_KEY = 'AIzaSyCoJEcBZOQZFj-xuwKg9prq5w4LBBSM3NM';
 
-const calculateNodePositions = (nodes, edges) => {
-  // Create a graph representation for topological sorting
-  const graph = new Map();
-  const inDegree = new Map();
-  nodes.forEach(node => {
-    graph.set(node.id, []);
-    inDegree.set(node.id, 0);
-  });
-  
-  // Build the graph
-  edges.forEach(edge => {
-    graph.get(edge.source).push(edge.target);
-    inDegree.set(edge.target, inDegree.get(edge.target) + 1);
-  });
-
-  // Find nodes with no incoming edges (roots)
-  const roots = nodes
-    .map(node => node.id)
-    .filter(id => inDegree.get(id) === 0);
-
-  // Calculate levels through BFS
-  const levels = new Map();
-  const queue = roots.map(id => ({ id, level: 0 }));
-  
-  while (queue.length > 0) {
-    const { id, level } = queue.shift();
-    levels.set(id, level);
-    
-    graph.get(id).forEach(nextId => {
-      inDegree.set(nextId, inDegree.get(nextId) - 1);
-      if (inDegree.get(nextId) === 0) {
-        queue.push({ id: nextId, level: level + 1 });
-      }
-    });
-  }
-
-  // Calculate positions based on levels
+const calculateNodePositions = (nodes) => {
   const VERTICAL_SPACING = 150;
   const HORIZONTAL_SPACING = 300;
-  const nodesPerLevel = new Map();
+  const centerX = window.innerWidth / 2;
   
-  // Count nodes per level
-  levels.forEach((level) => {
-    nodesPerLevel.set(level, (nodesPerLevel.get(level) || 0) + 1);
-  });
-
-  // Position nodes
-  return nodes.map(node => {
-    const level = levels.get(node.id);
-    const nodesInLevel = nodesPerLevel.get(level);
-    const centerX = window.innerWidth / 2;
-    
-    return {
-      ...node,
-      position: {
-        x: centerX - (HORIZONTAL_SPACING * (nodesInLevel - 1)) / 2 + 
-           (HORIZONTAL_SPACING * (Array.from(levels.entries())
-             .filter(([_, l]) => l === level)
-             .findIndex(([id]) => id === node.id))),
-        y: 100 + (level * VERTICAL_SPACING)
-      }
-    };
-  });
+  return nodes.map((node, index) => ({
+    ...node,
+    position: {
+      x: centerX + (HORIZONTAL_SPACING * (index - Math.floor(nodes.length / 2))),
+      y: 100 + (Math.floor(index / 3) * VERTICAL_SPACING)
+    }
+  }));
 };
 
-const GeminiChatDialog = ({ open, onClose, onApplyConfiguration }) => {
-  const [messages, setMessages] = useState([]);
+const processConfiguration = (config) => {
+  if (!config?.nodes || !Array.isArray(config.nodes)) {
+    console.error('Invalid configuration: nodes array is required');
+    return null;
+  }
+
+  try {
+    const processedNodes = config.nodes.map((node, index) => ({
+      id: node.id || `node-${index}`,
+      type: 'custom',
+      data: {
+        name: node.name || `Node ${index + 1}`,
+        serviceDist: (node.service_distribution || 'deterministic').toLowerCase(),
+        serviceRate: parseFloat(node.service_rate) || 1,
+        numberOfServers: parseInt(node.number_of_servers) || 1,
+        arrivalDist: (node.arrival_distribution || 'deterministic').toLowerCase(),
+        arrivalRate: parseFloat(node.arrival_rate) || 0,
+        incomingConnections: 0,
+        outgoingConnections: 0,
+        connections: []
+      }
+    }));
+
+    const processedEdges = (config.edges || []).map((edge, index) => ({
+      id: `edge-${edge.source}-${edge.target}`,
+      source: edge.source,
+      target: edge.target,
+      type: 'smoothstep',
+      animated: true,
+      data: { weight: parseFloat(edge.weight) || 0.5 },
+      label: (parseFloat(edge.weight) || 0.5).toFixed(2)
+    }));
+
+    // Add positions to nodes
+    const nodesWithPositions = calculateNodePositions(processedNodes);
+
+    // Update connection counts
+    const finalNodes = nodesWithPositions.map(node => {
+      const incomingConnections = processedEdges.filter(edge => edge.target === node.id).length;
+      const outgoingConnections = processedEdges.filter(edge => edge.source === node.id).length;
+      const connections = processedEdges
+        .filter(edge => edge.source === node.id)
+        .map(edge => ({
+          target: edge.target,
+          weight: edge.data.weight
+        }));
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          incomingConnections,
+          outgoingConnections,
+          connections
+        }
+      };
+    });
+
+    return {
+      nodes: finalNodes,
+      edges: processedEdges
+    };
+  } catch (error) {
+    console.error('Error processing configuration:', error);
+    return null;
+  }
+};
+
+const GeminiChatDialog = ({ 
+  open, 
+  onClose, 
+  onApplyConfiguration,
+  messages,
+  setMessages 
+}) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -92,49 +113,25 @@ const GeminiChatDialog = ({ open, onClose, onApplyConfiguration }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const processConfiguration = (config) => {
-    if (!config?.nodes) return null;
-
-    try {
-      // Process nodes
-      const processedNodes = config.nodes.map((node, index) => ({
-        id: node.id || `node-${index}`,
-        type: 'custom',
-        data: {
-          name: `Node ${index + 1}`,
-          serviceDist: (node.service_distribution || 'deterministic').toLowerCase(),
-          serviceRate: parseFloat(node.service_rate) || 1,
-          numberOfServers: 1,
-          arrivalDist: (node.arrival_distribution || 'deterministic').toLowerCase(),
-          arrivalRate: parseFloat(node.arrival_rate) || 0,
-          incomingConnections: 0,
-          outgoingConnections: 0,
-          connections: []
+  const processAssistantResponse = (response) => {
+    const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch) {
+      try {
+        const config = JSON.parse(jsonMatch[1]);
+        const processedConfig = processConfiguration(config);
+        if (processedConfig) {
+          onApplyConfiguration(processedConfig.nodes, processedConfig.edges);
         }
-      }));
-
-      // Process edges
-      const processedEdges = (config.edges || []).map(edge => ({
-        id: `edge-${edge.source}-${edge.target}`,
-        source: edge.source,
-        target: edge.target,
-        type: 'smoothstep',
-        animated: true,
-        data: { weight: edge.weight || 0.5 },
-        label: (edge.weight || 0.5).toFixed(2)
-      }));
-
-      // Calculate positions considering the graph structure
-      const nodesWithPositions = calculateNodePositions(processedNodes, processedEdges);
-
-      return {
-        nodes: nodesWithPositions,
-        edges: processedEdges
-      };
-    } catch (error) {
-      console.error('Error processing configuration:', error);
-      return null;
+        
+        return response.replace(/```json\n[\s\S]*?\n```/g, '')
+          .trim()
+          .replace(/\n\n+/g, '\n\n');
+      } catch (e) {
+        console.error('Configuration processing error:', e);
+        return response;
+      }
     }
+    return response;
   };
 
   const handleSend = async () => {
@@ -158,14 +155,44 @@ const GeminiChatDialog = ({ open, onClose, onApplyConfiguration }) => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are a queue network simulation assistant. When users ask for nodes, you must respond with a valid JSON configuration that can be rendered.
+              text: `You are a queue network simulation assistant. Your role is to help users understand and model queuing networks. 
 
-For the configuration, follow these rules:
-1. All node IDs should be in format "node-0", "node-1", etc.
-2. Service and arrival distributions must be one of: "deterministic", "exponential"
+When users request changes to the network, include a JSON configuration in your response using markdown code blocks with json syntax highlighting. The configuration must follow these rules:
+1. Node IDs should be in format "node-0", "node-1", etc.
+2. Service and arrival distributions must be "deterministic" or "exponential"
 3. All rates must be numeric values
-4. Include the configuration in a JSON block with "nodes" and "edges" arrays
+4. Configuration should be in a code block with nodes and edges arrays
 
+Example configuration format:
+\`\`\`json
+{
+  "nodes": [
+    {
+      "id": "node-0",
+      "name": "Entry Point",
+      "service_distribution": "exponential",
+      "service_rate": 1.5,
+      "number_of_servers": 2,
+      "arrival_distribution": "exponential",
+      "arrival_rate": 1.0
+    }
+  ],
+  "edges": [
+    {
+      "source": "node-0",
+      "target": "node-1",
+      "weight": 0.7
+    }
+  ]
+}
+\`\`\`
+
+Keep your responses conversational and educational. Explain concepts clearly and ask follow-up questions to better understand user needs.
+
+Previous conversation:
+${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+Current message:
 ${userMessage}`
             }]
           }]
@@ -178,30 +205,17 @@ ${userMessage}`
 
       const data = await response.json();
       const assistantMessage = data.candidates[0].content.parts[0].text;
-
-      try {
-        // Extract JSON configuration if present
-        const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const config = JSON.parse(jsonMatch[0]);
-          const processedConfig = processConfiguration(config);
-          if (processedConfig) {
-            onApplyConfiguration(processedConfig.nodes, processedConfig.edges);
-          }
-        }
-      } catch (e) {
-        console.error('Configuration processing error:', e);
-      }
+      const processedMessage = processAssistantResponse(assistantMessage);
 
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: assistantMessage
+        content: processedMessage
       }]);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Sorry, I encountered an error processing your request: ${error.message}`
+        content: `I apologize, but I encountered an error processing your request. Could you please try rephrasing or provide more details?`
       }]);
     } finally {
       setIsLoading(false);
@@ -215,16 +229,10 @@ ${userMessage}`
     }
   };
 
-  const handleClose = () => {
-    setMessages([]);
-    setInput('');
-    onClose();
-  };
-
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={onClose}
       maxWidth="md"
       fullWidth
       PaperProps={{
@@ -245,9 +253,9 @@ ${userMessage}`
       }}>
         <AIIcon color="primary" />
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          AI Assistant
+          Queue Network Assistant
         </Typography>
-        <IconButton size="small" onClick={handleClose}>
+        <IconButton size="small" onClick={onClose}>
           <CloseIcon />
         </IconButton>
       </Box>
@@ -271,11 +279,12 @@ ${userMessage}`
           }}>
             <AIIcon sx={{ fontSize: 48 }} />
             <Typography variant="h6">
-              How can I help you with your queue network?
+              Welcome! How can I help you with queue network modeling?
             </Typography>
             <Typography variant="body2" textAlign="center" maxWidth="80%">
-              You can ask me to create nodes, modify connections, adjust parameters,
-              or explain how different configurations might affect your system.
+              I can help you understand queuing concepts, design networks, 
+              analyze performance, or explain how different configurations 
+              might affect your system. What would you like to explore?
             </Typography>
           </Box>
         ) : (
@@ -309,16 +318,12 @@ ${userMessage}`
         )}
       </DialogContent>
 
-      <Box sx={{ 
-        p: 2, 
-        borderTop: 1, 
-        borderColor: 'divider'
-      }}>
+      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
         <TextField
           fullWidth
           multiline
           maxRows={4}
-          placeholder="Describe what you'd like to do with your queue network..."
+          placeholder="Ask me about queue networks, modeling concepts, or system design..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
