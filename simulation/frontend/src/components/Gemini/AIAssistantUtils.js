@@ -1,4 +1,11 @@
 import React from 'react';
+import { 
+  createProjectViaAPI, 
+  saveNodesViaAPI, 
+  runSimulationViaAPI, 
+  getSimulationResultsViaAPI,
+  formatSimulationResults
+} from './AISimulationUtils.js';
 
 /**
  * Parses and processes AI action commands from response strings
@@ -31,6 +38,254 @@ export const processAIAction = (actionString) => {
 };
 
 /**
+ * Executes an AI action and returns information about the result
+ * @param {Object} action - Parsed action object
+ * @param {Object} userData - Current user and application data
+ * @param {Function} navigate - React Router navigate function
+ * @returns {Promise<Object>} - Result of the action
+ */
+export const executeAIAction = async (action, userData, navigate) => {
+  if (!action || !action.type) return { success: false, message: 'Invalid action' };
+  
+  try {
+    switch (action.type) {
+      case 'navigate':
+        if (navigate && action.path) {
+          navigate(action.path);
+          return { 
+            success: true, 
+            message: `Navigated to ${action.description || action.path}` 
+          };
+        }
+        return { success: false, message: 'Invalid navigation path' };
+        
+      case 'create_project':
+        if (action.name) {
+          const projectId = await createProjectViaAPI(action.name, action.description || '');
+          if (projectId) {
+            // If there's a follow-up node configuration, store it
+            const pendingConfig = action.configure_nodes ? {
+              nodes: action.configure_nodes.nodes || [],
+              edges: action.configure_nodes.edges || []
+            } : null;
+            
+            return { 
+              success: true, 
+              message: `Created project "${action.name}" with ID ${projectId}`,
+              projectId,
+              pendingConfig  // Pass any pending configuration
+            };
+          }
+        }
+        return { success: false, message: 'Failed to create project' };
+        
+      case 'create_and_configure':
+        // Handle creating a project and configuring nodes in one step
+        if (action.project && action.project.name && action.nodes) {
+          // First create the project
+          const projectId = await createProjectViaAPI(
+            action.project.name, 
+            action.project.description || ''
+          );
+          
+          if (!projectId) {
+            return { success: false, message: 'Failed to create project' };
+          }
+          
+          // Navigate to nodes page if needed
+          if (navigate) {
+            navigate(`/projects/${projectId}/nodes`);
+          }
+          
+          // Wait a bit for the page to load and project to be set
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          try {
+            // Process nodes to ensure proper data structure
+            const processedNodes = action.nodes.map((node, index) => {
+              // Ensure node has consistent structure for both API and UI
+              return {
+                id: node.id || `node-${index}`,
+                name: node.name || node.data?.name || `Node ${index + 1}`,
+                service_distribution: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
+                service_rate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
+                number_of_servers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
+                arrival_distribution: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
+                arrival_rate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+                // Also include data field for React Flow compatibility
+                data: {
+                  name: node.name || node.data?.name || `Node ${index + 1}`,
+                  serviceDist: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
+                  serviceRate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
+                  numberOfServers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
+                  arrivalDist: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
+                  arrivalRate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+                }
+              };
+            });
+            
+            // Process edges for consistent structure
+            const processedEdges = (action.edges || []).map(edge => {
+              return {
+                id: edge.id || `edge-${edge.source}-${edge.target}`,
+                source: edge.source,
+                target: edge.target,
+                weight: parseFloat(edge.weight || edge.data?.weight || 0.5),
+                // Also include data field for React Flow compatibility
+                data: { 
+                  weight: parseFloat(edge.weight || edge.data?.weight || 0.5) 
+                }
+              };
+            });
+            
+            // Try UI event with processed data
+            window.dispatchEvent(new CustomEvent('ai-configure-nodes', { 
+              detail: { 
+                nodes: processedNodes, 
+                edges: processedEdges 
+              }
+            }));
+            
+            // Configure the nodes via API
+            await saveNodesViaAPI(projectId, processedNodes, processedEdges);
+            
+            return {
+              success: true,
+              message: `Created project "${action.project.name}" with ID ${projectId} and configured nodes`,
+              projectId
+            };
+          } catch (error) {
+            console.error("Failed to configure nodes:", error);
+            return {
+              success: true,
+              message: `Created project "${action.project.name}" with ID ${projectId}, but failed to configure nodes: ${error.message}`,
+              projectId
+            };
+          }
+        }
+        return { success: false, message: 'Invalid project or node configuration' };
+        
+      case 'configure_nodes':
+        const projectId = action.project_id || userData.currentProject?.id;
+        
+        if (!projectId) {
+          return { success: false, message: 'No project selected or specified' };
+        }
+        
+        if (!action.nodes || !Array.isArray(action.nodes) || action.nodes.length === 0) {
+          return { success: false, message: 'Invalid node configuration' };
+        }
+        
+        // Navigate to nodes page if needed
+        if (navigate && userData.currentProject?.id !== projectId) {
+          navigate(`/projects/${projectId}/nodes`);
+          // Wait a bit for the page to load
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        // Process nodes to ensure proper data structure
+        const processedNodes = action.nodes.map((node, index) => {
+          // Ensure node has consistent structure for both API and UI
+          return {
+            id: node.id || `node-${index}`,
+            name: node.name || node.data?.name || `Node ${index + 1}`,
+            service_distribution: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
+            service_rate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
+            number_of_servers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
+            arrival_distribution: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
+            arrival_rate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+            // Also include data field for React Flow compatibility
+            data: {
+              name: node.name || node.data?.name || `Node ${index + 1}`,
+              serviceDist: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
+              serviceRate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
+              numberOfServers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
+              arrivalDist: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
+              arrivalRate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+            }
+          };
+        });
+        
+        // Process edges for consistent structure
+        const processedEdges = (action.edges || []).map(edge => {
+          return {
+            id: edge.id || `edge-${edge.source}-${edge.target}`,
+            source: edge.source,
+            target: edge.target,
+            weight: parseFloat(edge.weight || edge.data?.weight || 0.5),
+            // Also include data field for React Flow compatibility
+            data: { 
+              weight: parseFloat(edge.weight || edge.data?.weight || 0.5) 
+            }
+          };
+        });
+        
+        // First try UI event with processed data
+        console.log("Attempting UI-based configuration with processed data");
+        window.dispatchEvent(new CustomEvent('ai-configure-nodes', { 
+          detail: { 
+            nodes: processedNodes, 
+            edges: processedEdges 
+          }
+        }));
+        
+        // Then try direct API
+        try {
+          console.log("Attempting direct API configuration");
+          await saveNodesViaAPI(projectId, processedNodes, processedEdges);
+        } catch (error) {
+          console.error("Direct API configuration failed:", error);
+          return { 
+            success: false, 
+            message: `Failed to configure nodes: ${error.message}`
+          };
+        }
+        
+        return { 
+          success: true, 
+          message: 'Applied node configuration'
+        };
+        
+      case 'run_simulation':
+        if (userData.currentProject?.id) {
+          const results = await runSimulationViaAPI(userData.currentProject.id);
+          return { 
+            success: true, 
+            message: 'Simulation completed',
+            results
+          };
+        }
+        return { success: false, message: 'No project selected' };
+        
+      case 'get_simulation_results':
+        if (userData.currentProject?.id) {
+          const results = await getSimulationResultsViaAPI(userData.currentProject.id);
+          if (results) {
+            return { 
+              success: true, 
+              message: 'Retrieved simulation results',
+              results,
+              formattedResults: formatSimulationResults(results)
+            };
+          }
+          return { success: false, message: 'No simulation results available' };
+        }
+        return { success: false, message: 'No project selected' };
+        
+      default:
+        return { success: false, message: `Unknown action type: ${action.type}` };
+    }
+  } catch (error) {
+    console.error('Error executing action:', error);
+    return { 
+      success: false, 
+      message: `Error: ${error.message}`,
+      error
+    };
+  }
+};
+
+/**
  * Generates the system prompt for the AI based on current application state
  * @param {string} currentPage - Current page path
  * @param {Object} userData - User data including projects, nodes, and simulation results
@@ -55,44 +310,95 @@ When helping users, you can perform actions by including JSON in your response u
 Available actions:
 1. Navigate to a page: { "type": "navigate", "path": "/path" }
 2. Create a project: { "type": "create_project", "name": "Project Name", "description": "Description" }
-3. Configure nodes: { "type": "configure_nodes", "nodes": [...], "edges": [...] }
-4. Run simulation: { "type": "run_simulation" }
+3. Configure nodes: { "type": "configure_nodes", "project_id": 123, "nodes": [...], "edges": [...] }
+4. Create project and configure nodes: { "type": "create_and_configure", "project": {"name": "Project Name"}, "nodes": [...], "edges": [...] }
+5. Run simulation: { "type": "run_simulation" }
+6. Get simulation results: { "type": "get_simulation_results" }
 
-For node configuration, use the same format as shown in the examples below:
+IMPORTANT: For node configuration, only "Deterministic" and "Exponential" distribution types are supported. Use the following format:
 
-Example node configuration:
 \`\`\`action
 {
   "type": "configure_nodes",
+  "project_id": 123,  // Optional: only needed if configuring a project other than current
   "nodes": [
     {
       "id": "node-0",
       "name": "Entry Point",
-      "service_distribution": "Exponential",
-      "service_rate": 1.5,
-      "number_of_servers": 2,
-      "arrival_distribution": "Exponential",
-      "arrival_rate": 1.0
+      "data": {
+        "serviceDist": "exponential",
+        "serviceRate": 1.5,
+        "numberOfServers": 2,
+        "arrivalDist": "exponential",
+        "arrivalRate": 1.0
+      }
     },
     {
       "id": "node-1",
       "name": "Processing Station",
-      "service_distribution": "Deterministic",
-      "service_rate": 2.0,
-      "number_of_servers": 1,
-      "arrival_distribution": "Deterministic",
-      "arrival_rate": 0
+      "data": {
+        "serviceDist": "deterministic",
+        "serviceRate": 2.0,
+        "numberOfServers": 1,
+        "arrivalDist": "deterministic",
+        "arrivalRate": 0
+      }
     }
   ],
   "edges": [
     {
       "source": "node-0",
       "target": "node-1",
-      "weight": 0.7
+      "data": { "weight": 0.7 }
     }
   ]
 }
-\`\`\``;
+\`\`\`
+
+Or you can create a project and configure it all at once:
+
+\`\`\`action
+{
+  "type": "create_and_configure",
+  "project": {
+    "name": "Grocery Store Simulation",
+    "description": "Multi-node simulation of customer flow in a grocery store"
+  },
+  "nodes": [
+    {
+      "id": "node-0",
+      "name": "Store Entrance",
+      "data": {
+        "serviceDist": "exponential",
+        "serviceRate": 1.0,
+        "numberOfServers": 1,
+        "arrivalDist": "exponential",
+        "arrivalRate": 2.0
+      }
+    },
+    {
+      "id": "node-1",
+      "name": "Checkout",
+      "data": {
+        "serviceDist": "deterministic",
+        "serviceRate": 1.5,
+        "numberOfServers": 3,
+        "arrivalDist": "deterministic",
+        "arrivalRate": 0.0
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "node-0",
+      "target": "node-1",
+      "data": { "weight": 1.0 }
+    }
+  ]
+}
+\`\`\`
+
+Make sure each node has a unique ID in the format "node-0", "node-1", etc. The first node (node-0) should have an arrival rate > 0, while other nodes typically have arrival rate = 0. Each edge must have valid source and target node IDs, and a weight between 0 and 1.`;
 
   // Add page-specific context
   if (currentPage === '/projects') {

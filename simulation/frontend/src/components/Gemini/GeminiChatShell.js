@@ -7,6 +7,7 @@ import {
   Box,
   IconButton,
   CircularProgress,
+  Divider,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -33,6 +34,7 @@ const GeminiChatShell = ({
 }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [processingResponse, setProcessingResponse] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -78,12 +80,34 @@ ${userMessage}`
 
       const data = await response.json();
       const assistantMessage = data.candidates[0].content.parts[0].text;
-      const processedMessage = processResponse(assistantMessage);
-
+      
+      // Add a preliminary message
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: processedMessage
+        content: assistantMessage,
+        processing: true
       }]);
+      
+      // Signal that we're processing the response
+      setProcessingResponse(true);
+      
+      // Process the response (potentially async)
+      try {
+        const processedMessage = await processResponse(assistantMessage);
+        
+        // Update the message with the processed content
+        setMessages(prev => prev.map((msg, idx) => 
+          idx === prev.length - 1 ? { role: 'assistant', content: processedMessage } : msg
+        ));
+      } catch (processError) {
+        console.error('Error processing response:', processError);
+        // Keep the original message if processing fails
+        setMessages(prev => prev.map((msg, idx) => 
+          idx === prev.length - 1 ? { role: 'assistant', content: assistantMessage } : msg
+        ));
+      } finally {
+        setProcessingResponse(false);
+      }
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
@@ -128,7 +152,7 @@ ${userMessage}`
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           {dialogTitle}
         </Typography>
-        <IconButton size="small" onClick={onClose}>
+        <IconButton size="small" onClick={onClose} disabled={isLoading || processingResponse}>
           <CloseIcon />
         </IconButton>
       </Box>
@@ -178,11 +202,24 @@ ${userMessage}`
                     color: message.role === 'user' ? 'white' : 'text.primary',
                     borderRadius: 2,
                     p: 2,
+                    position: 'relative'
                   }}
                 >
                   <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                     {message.content}
                   </Typography>
+                  
+                  {/* Processing indicator */}
+                  {message.processing && (
+                    <Box sx={{ 
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      m: 1
+                    }}>
+                      <CircularProgress size={16} />
+                    </Box>
+                  )}
                 </Box>
               </Box>
             ))}
@@ -200,12 +237,12 @@ ${userMessage}`
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          disabled={isLoading}
+          disabled={isLoading || processingResponse}
           InputProps={{
             endAdornment: (
               <IconButton 
                 onClick={handleSend}
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || processingResponse || !input.trim()}
                 color="primary"
               >
                 {isLoading ? <CircularProgress size={24} /> : <SendIcon />}
@@ -213,6 +250,14 @@ ${userMessage}`
             )
           }}
         />
+        {processingResponse && (
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={16} />
+            <Typography variant="caption" color="text.secondary">
+              Processing actions...
+            </Typography>
+          </Box>
+        )}
       </Box>
     </Dialog>
   );

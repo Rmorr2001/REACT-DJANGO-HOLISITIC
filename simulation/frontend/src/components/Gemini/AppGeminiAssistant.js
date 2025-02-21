@@ -2,7 +2,12 @@ import React, { useState, useContext, createContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GeminiChatShell from './GeminiChatShell.js';
 import { AutoFixHigh as AIIcon } from '@mui/icons-material';
-import { processAIAction, getSystemPrompt, getWelcomeMessage } from './AIAssistantUtils.js';
+import { 
+  processAIAction, 
+  executeAIAction, 
+  getSystemPrompt, 
+  getWelcomeMessage 
+} from './AIAssistantUtils.js';
 
 // Create a context to manage AI assistant state across the application
 const AIAssistantContext = createContext();
@@ -28,6 +33,9 @@ export const AIAssistantProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState('');
+  
+  // Store pending operations
+  const [pendingProjectConfig, setPendingProjectConfig] = useState(null);
 
   // Track current page and update context
   useEffect(() => {
@@ -48,6 +56,53 @@ export const AIAssistantProvider = ({ children }) => {
       fetchProjects();
     }
   }, [currentPage]);
+  
+  // Apply pending configuration once we're on the nodes page and project is loaded
+  useEffect(() => {
+    const applyPendingConfig = async () => {
+      if (pendingProjectConfig && 
+          currentPage.includes('/nodes') && 
+          userData.currentProject && 
+          pendingProjectConfig.projectId === userData.currentProject.id) {
+        
+        console.log('Applying pending node configuration for project', pendingProjectConfig.projectId);
+        
+        // Try UI event
+        window.dispatchEvent(new CustomEvent('ai-configure-nodes', { 
+          detail: { 
+            nodes: pendingProjectConfig.nodes, 
+            edges: pendingProjectConfig.edges 
+          }
+        }));
+        
+        // Then API
+        try {
+          await executeAIAction({
+            type: 'configure_nodes',
+            project_id: pendingProjectConfig.projectId,
+            nodes: pendingProjectConfig.nodes,
+            edges: pendingProjectConfig.edges
+          }, userData, navigate);
+          
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: 'I have configured the nodes for your project.'
+          }]);
+        } catch (error) {
+          console.error('Failed to apply pending configuration:', error);
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `I attempted to configure the nodes but encountered an error: ${error.message}`
+          }]);
+        }
+        
+        // Clear pending config
+        setPendingProjectConfig(null);
+      }
+    };
+    
+    applyPendingConfig();
+  }, [currentPage, userData.currentProject, pendingProjectConfig]);
 
   /**
    * Fetches all user projects from the API
@@ -143,109 +198,56 @@ export const AIAssistantProvider = ({ children }) => {
   /**
    * Processes assistant responses - extracts and handles actions
    * @param {string} response - Raw response from AI assistant
-   * @returns {string} - Processed response with actions removed and confirmations added
+   * @returns {Promise<string>} - Processed response with actions removed and confirmations added
    */
-  const processResponse = (response) => {
+  const processResponse = async (response) => {
     const action = processAIAction(response);
     
-    // Handle different actions based on the action type
-    if (action) {
-      switch (action.type) {
-        case 'navigate':
-          navigate(action.path);
-          return response.replace(/```action\n[\s\S]*?\n```/g, '')
-            + `\n\nI've navigated you to the ${action.description || 'requested page'}.`;
-          
-        case 'create_project':
-          createProject(action.name, action.description)
-            .then(projectId => {
-              if (projectId) {
-                navigate(`/projects/${projectId}/nodes`);
-              }
-            });
-          return response.replace(/```action\n[\s\S]*?\n```/g, '')
-            + `\n\nI'm creating your project "${action.name}" now...`;
-          
-        case 'run_simulation':
-          if (currentPage.includes('/nodes')) {
-            // If we're on the configuration page, we need to save first
-            return response.replace(/```action\n[\s\S]*?\n```/g, '')
-              + `\n\nTo run the simulation, you'll need to save your configuration first. Should I save and run the simulation for you?`;
-          }
-          runSimulation(userData.currentProject?.id);
-          return response.replace(/```action\n[\s\S]*?\n```/g, '')
-            + `\n\nStarting the simulation with your parameters...`;
-          
-        case 'configure_nodes':
-          if (action.nodes && userData.currentProject) {
-            // This would integrate with your existing node configuration code
-            window.dispatchEvent(new CustomEvent('ai-configure-nodes', { 
-              detail: { nodes: action.nodes, edges: action.edges }
-            }));
-            return response.replace(/```action\n[\s\S]*?\n```/g, '')
-              + `\n\nI've applied the node configuration to your project.`;
-          }
-          return response;
-          
-        default:
-          return response;
-      }
-    }
+    if (!action) return response;
     
-    return response;
-  };
-
-  /**
-   * Creates a new project via API
-   * @param {string} name - Project name
-   * @param {string} description - Project description
-   * @returns {string|null} - Project ID if successful, null otherwise
-   */
-  const createProject = async (name, description) => {
-    try {
-      const response = await fetch('/api/projects/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value
-        },
-        body: JSON.stringify({ name, description })
-      });
+    const actionResult = await executeAIAction(action, userData, navigate);
+    
+    // Remove the action code block from response
+    let cleanedResponse = response.replace(/```action\n[\s\S]*?\n```/g, '');
+    
+    // Add confirmation message about the action
+    if (actionResult.success) {
+      // If we have formatted results, include them
+      if (action.type === 'get_simulation_results' && actionResult.formattedResults) {
+        cleanedResponse += `\n\n${actionResult.formattedResults}`;
+      } else {
+        cleanedResponse += `\n\n${actionResult.message}`;
+      }
       
-      if (response.ok) {
-        const data = await response.json();
-        fetchProjects(); // Refresh projects list
-        return data.project_id || (data.project && data.project.id);
+      // Handle pending node configurations
+      if (action.type === 'create_project' && actionResult.pendingConfig) {
+        setPendingProjectConfig({
+          projectId: actionResult.projectId,
+          nodes: actionResult.pendingConfig.nodes,
+          edges: actionResult.pendingConfig.edges
+        });
+        
+        // Navigate to the nodes page for the new project
+        navigate(`/projects/${actionResult.projectId}/nodes`);
+        
+        cleanedResponse += "\n\nI'll configure the nodes for this project once we're on the configuration page.";
       }
-    } catch (error) {
-      console.error('Error creating project:', error);
-    }
-    return null;
-  };
-
-  /**
-   * Runs a simulation for the specified project
-   * @param {string} projectId - ID of the project to run simulation for
-   */
-  const runSimulation = async (projectId) => {
-    if (!projectId) return;
-    
-    try {
-      const response = await fetch(`/api/projects/${projectId}/simulate/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value
+      
+      // Refresh data if needed
+      if (action.type === 'create_project' || action.type === 'create_and_configure') {
+        fetchProjects();
+        if (actionResult.projectId) {
+          await fetchProjectDetails(actionResult.projectId);
         }
-      });
-      
-      if (response.ok) {
-        // Refresh simulation results
-        fetchSimulationResults(projectId);
+      } else if (action.type === 'run_simulation' && userData.currentProject) {
+        await fetchSimulationResults(userData.currentProject.id);
       }
-    } catch (error) {
-      console.error(`Error running simulation for project ${projectId}:`, error);
+    } else {
+      // Add error message if action failed
+      cleanedResponse += `\n\nI'm sorry, I couldn't complete that action: ${actionResult.message}`;
     }
+    
+    return cleanedResponse;
   };
 
   // Assistant UI control functions
@@ -259,6 +261,7 @@ export const AIAssistantProvider = ({ children }) => {
       isOpen,
       messages,
       setMessages,
+      userData,
       // Expose the processResponse function to be used by other components
       processResponse
     }}>

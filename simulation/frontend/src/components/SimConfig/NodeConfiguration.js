@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
@@ -19,6 +19,7 @@ import {
   Add as AddIcon,
   Save as SaveIcon,
   AutoFixHigh as AIIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useAIAssistant } from '../Gemini/AppGeminiAssistant.js';
 
@@ -46,6 +47,20 @@ const NodeConfiguration = () => {
   
   // Global AI assistant integration
   const { openAssistant } = useAIAssistant();
+  
+  // Refs to track initialization and configuration status
+  const initialized = useRef(false);
+  const configApplied = useRef(false);
+  const reactFlowInstance = useRef(null);
+
+  // Function to refresh node layout
+  const refreshFlow = useCallback(() => {
+    if (reactFlowInstance.current && nodes.length > 0) {
+      setTimeout(() => {
+        reactFlowInstance.current.fitView({ padding: 0.2 });
+      }, 100);
+    }
+  }, [nodes]);
 
   useEffect(() => {
     const loadProjectData = async () => {
@@ -59,6 +74,7 @@ const NodeConfiguration = () => {
       try {
         console.log('Loading project with ID:', projectId); // Debug log
         await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
+        initialized.current = true;
       } catch (error) {
         console.error('Error loading project:', error);
         setError(error.message || 'Failed to load project data');
@@ -70,7 +86,7 @@ const NodeConfiguration = () => {
     loadProjectData();
   }, [projectId]);
 
-  // Listen for AI configuration events
+  // Listen for AI configuration events with improved handling
   useEffect(() => {
     const handleAIConfiguration = (event) => {
       const { nodes: newNodes, edges: newEdges } = event.detail;
@@ -85,41 +101,70 @@ const NodeConfiguration = () => {
             y: 150 + Math.floor(index / 3) * 200 
           },
           data: {
-            name: node.name || `Node ${index + 1}`,
-            serviceDist: (node.service_distribution || 'deterministic').toLowerCase(),
-            serviceRate: parseFloat(node.service_rate) || 1,
-            numberOfServers: parseInt(node.number_of_servers) || 1,
-            arrivalDist: (node.arrival_distribution || 'deterministic').toLowerCase(),
-            arrivalRate: parseFloat(node.arrival_rate) || 0,
+            name: node.data?.name || node.name || `Node ${index + 1}`,
+            serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
+            serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
+            numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
+            arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
+            arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
             incomingConnections: 0,
             outgoingConnections: 0,
             connections: []
           }
         }));
         
-        setNodes(processedNodes);
+        // Clear existing nodes first to avoid conflicts
+        setNodes([]);
+        setTimeout(() => {
+          setNodes(processedNodes);
+          configApplied.current = true;
+          
+          // Process edges after nodes are set
+          if (newEdges && newEdges.length) {
+            setTimeout(() => {
+              const processedEdges = newEdges.map(edge => ({
+                id: edge.id || `edge-${edge.source}-${edge.target}`,
+                source: edge.source,
+                target: edge.target,
+                type: 'smoothstep',
+                animated: true,
+                data: { weight: parseFloat(edge.data?.weight || edge.weight || 0.5) },
+                label: (parseFloat(edge.data?.weight || edge.weight || 0.5)).toFixed(2)
+              }));
+              
+              setEdges(processedEdges);
+              
+              // Update connections and refresh layout
+              setTimeout(() => {
+                const updatedNodes = updateNodeConnections(processedNodes, processedEdges);
+                setNodes(updatedNodes);
+                refreshFlow();
+              }, 100);
+            }, 100);
+          } else {
+            refreshFlow();
+          }
+        }, 100);
       }
-      
-      if (newEdges && newEdges.length) {
+      else if (newEdges && newEdges.length) {
         const processedEdges = newEdges.map(edge => ({
           id: edge.id || `edge-${edge.source}-${edge.target}`,
           source: edge.source,
           target: edge.target,
           type: 'smoothstep',
           animated: true,
-          data: { weight: parseFloat(edge.weight) || 0.5 },
-          label: (parseFloat(edge.weight) || 0.5).toFixed(2)
+          data: { weight: parseFloat(edge.data?.weight || edge.weight || 0.5) },
+          label: (parseFloat(edge.data?.weight || edge.weight || 0.5)).toFixed(2)
         }));
         
         setEdges(processedEdges);
-      }
-      
-      // Update node connections after we've set both nodes and edges
-      if ((newNodes && newNodes.length) || (newEdges && newEdges.length)) {
+        
+        // Update node connections
         setTimeout(() => {
-          const updatedNodes = updateNodeConnections(nodes, edges);
+          const updatedNodes = updateNodeConnections(nodes, processedEdges);
           setNodes(updatedNodes);
-        }, 50);
+          refreshFlow();
+        }, 100);
       }
     };
     
@@ -127,7 +172,19 @@ const NodeConfiguration = () => {
     return () => {
       window.removeEventListener('ai-configure-nodes', handleAIConfiguration);
     };
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes, edges, setNodes, setEdges, refreshFlow]);
+
+  // Effect to ensure ReactFlow refreshes after AI configuration
+  useEffect(() => {
+    if (configApplied.current && nodes.length > 0) {
+      const timer = setTimeout(() => {
+        refreshFlow();
+        configApplied.current = false;
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [nodes, refreshFlow]);
 
   const addNode = () => {
     const newNodeId = `node-${nodes.length}`;
@@ -152,6 +209,7 @@ const NodeConfiguration = () => {
     };
     
     setNodes(prevNodes => [...prevNodes, newNode]);
+    setTimeout(refreshFlow, 100);
   };
 
   const onNodeClick = useCallback((_, node) => {
@@ -180,6 +238,20 @@ const NodeConfiguration = () => {
       }
     } catch (error) {
       setSavingStatus({ saving: false, success: false, error: error.message || 'Save failed' });
+    }
+  };
+
+  // Handler for the manual refresh button
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    try {
+      await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
+      setTimeout(refreshFlow, 100);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setError(error.message || 'Failed to refresh data');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -264,6 +336,14 @@ const NodeConfiguration = () => {
           
           <Button
             variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefresh}
+          >
+            Refresh
+          </Button>
+          
+          <Button
+            variant="outlined"
             startIcon={<AIIcon />}
             onClick={openAssistant}
             color="secondary"
@@ -314,6 +394,10 @@ const NodeConfiguration = () => {
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
+          onInit={instance => {
+            reactFlowInstance.current = instance;
+            setTimeout(refreshFlow, 100);
+          }}
           fitView
         >
           <Background color="#f1f5f9" gap={16} />
