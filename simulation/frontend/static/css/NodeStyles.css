@@ -13,6 +13,12 @@
   box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
 }
 
+.node-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
 .node-title {
   font-size: 1.1rem;
   font-weight: 600;
@@ -143,4 +149,3 @@
     stroke-dashoffset: 10;
   }
 }
-

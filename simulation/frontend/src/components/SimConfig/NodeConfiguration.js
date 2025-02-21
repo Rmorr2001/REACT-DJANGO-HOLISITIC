@@ -26,7 +26,7 @@ import '../../../static/css/NodeStyles.css';
 import NodeConfigurationDialog from './useNodeConfiguration.js';
 import GeminiChatDialog from './GeminiChatDialog.js';
 import { nodeTypes, updateNodeConnections } from './CustomNode.js';
-import { defaultEdgeOptions, onConnect, handleSave, fetchProjectData } from './NodeConfigurationUtils2.js';
+import { defaultEdgeOptions, onConnect, handleSave, fetchProjectData } from './NodeConfigurationUtils.js';
 
 const NodeConfiguration = () => {
   const { projectId } = useParams();
@@ -76,12 +76,13 @@ const NodeConfiguration = () => {
         arrivalDist: 'deterministic',
         arrivalRate: 0,
         incomingConnections: 0,
-        outgoingConnections: 0
+        outgoingConnections: 0,
+        nodeType: 'Restaurant', // Default node type
+        colorTheme: 'default' // Default color theme
       }
     };
     setNodes(nodes => [...nodes, newNode]);
   };
-
   const onNodeClick = useCallback((_, node) => {
     setSelectedNode(node);
     setShowNodeDialog(true);
@@ -204,6 +205,8 @@ const NodeConfiguration = () => {
         }}
       >
         <ReactFlow
+          // this is the code where the whole UI for the simulation happens.
+
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}

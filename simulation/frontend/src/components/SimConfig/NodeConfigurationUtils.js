@@ -1,6 +1,7 @@
 import { addEdge, MarkerType } from 'reactflow';
 
 export const defaultEdgeOptions = {
+  // This is how the connections in the UI are configured
   type: 'smoothstep',
   animated: true,
   style: { strokeWidth: 2 },
@@ -13,13 +14,16 @@ export const defaultEdgeOptions = {
 };
 
 export const onConnect = (params, nodes, edges, setEdges, setNodes, updateNodeConnections) => {
+  
+  
   const sourceNode = nodes.find(n => n.id === params.source);
   const existingEdges = edges.filter(e => e.source === params.source);
   const currentTotal = existingEdges.reduce((sum, edge) => sum + (edge.data?.weight || 0), 0);
   const isSelfConnection = params.source === params.target;
 
   if (currentTotal <= 0.95) {
-    if (isSelfConnection) {
+    // Channel for making an edge only possible if there is available room
+    if (isSelfConnection) { // this is the control for self connections on nodes... will assign different features
       params.sourceHandle = 'source-self';
       params.targetHandle = 'target-self';
     } else {
@@ -134,6 +138,8 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
 };
 
 export const handleSave = async (projectId, nodes, edges, navigate) => {
+  // this is the important one
+  
   try {
     console.log('Saving nodes:', nodes); // Debug log
     console.log('Saving edges:', edges); // Debug log

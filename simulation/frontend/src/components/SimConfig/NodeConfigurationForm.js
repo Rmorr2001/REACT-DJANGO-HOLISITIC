@@ -10,10 +10,52 @@ import {
   Typography,
   IconButton,
   MenuItem,
+  Select,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
 } from '@mui/material';
-import { Delete as DeleteIcon } from '@mui/icons-material';
+import { 
+  Delete as DeleteIcon,
+  ExpandMore as ExpandMoreIcon,
+  Palette as PaletteIcon,
+  // Real-world applicable icons - importing individually to ensure they exist
+  Restaurant as RestaurantIcon,
+  LocalHospital as HospitalIcon,
+  Factory as FactoryIcon, 
+  Store as StoreIcon,
+  // Verify these icons exist in the MUI icons package
+  LocalShipping as ShippingIcon,
+  Person as ServiceDeskIcon, // Changed from Meeting to Person which is more likely to exist
+  Inventory as InventoryIcon,
+  Storefront as CheckoutIcon,
+  Group as WaitingAreaIcon // Changed from Groups to Group which is more likely to exist
+} from '@mui/icons-material';
 
-export const ConfigurationForm = ({
+// Node type to icon mapping with real-world applications
+const nodeTypeOptions = [
+  { value: 'restaurant', label: 'Restaurant/Kitchen', icon: <RestaurantIcon /> },
+  { value: 'hospital', label: 'Hospital/Clinic', icon: <HospitalIcon /> },
+  { value: 'factory', label: 'Factory/Assembly', icon: <FactoryIcon /> },
+  { value: 'store', label: 'Retail Store', icon: <StoreIcon /> },
+  { value: 'shipping', label: 'Shipping/Logistics', icon: <ShippingIcon /> },
+  { value: 'service', label: 'Service Desk', icon: <ServiceDeskIcon /> },
+  { value: 'inventory', label: 'Inventory/Storage', icon: <InventoryIcon /> },
+  { value: 'checkout', label: 'Checkout/Register', icon: <CheckoutIcon /> },
+  { value: 'waiting', label: 'Waiting Area', icon: <WaitingAreaIcon /> },
+];
+
+const colorThemeOptions = [
+  { value: 'default', label: 'Blue (Default)', color: '#3b82f6' },
+  { value: 'red', label: 'Red', color: '#ef4444' },
+  { value: 'green', label: 'Green', color: '#22c55e' },
+  { value: 'purple', label: 'Purple', color: '#a855f7' },
+  { value: 'orange', label: 'Orange', color: '#f97316' },
+  { value: 'cyan', label: 'Cyan', color: '#06b6d4' },
+];
+
+const ConfigurationForm = ({
   formData,
   handleFormChange,
   selectedNode,
@@ -25,9 +67,98 @@ export const ConfigurationForm = ({
   onAddConnection,
 }) => {
   if (!formData) return null;
-  
+
   return (
     <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Accordion>
+        <AccordionSummary 
+          expandIcon={<ExpandMoreIcon />}
+          sx={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.03)',
+            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' }
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PaletteIcon color="primary" />
+            <Typography>Cosmetics</Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Customize the visual appearance of this node. These settings don't affect the simulation results.
+            </Typography>
+            
+            <FormControl fullWidth>
+              <FormLabel>Node Icon</FormLabel>
+              <Select
+                value={formData.nodeType || 'service'}
+                onChange={(e) => handleFormChange('nodeType', e.target.value)}
+                renderValue={(value) => {
+                  const option = nodeTypeOptions.find(opt => opt.value === value);
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {option?.icon}
+                      <span>{option?.label}</span>
+                    </Box>
+                  );
+                }}
+              >
+                {nodeTypeOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {option.icon}
+                      <span>{option.label}</span>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            <FormControl fullWidth>
+              <FormLabel>Color Theme</FormLabel>
+              <Select
+                value={formData.colorTheme || 'default'}
+                onChange={(e) => handleFormChange('colorTheme', e.target.value)}
+                renderValue={(value) => {
+                  const option = colorThemeOptions.find(opt => opt.value === value);
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box 
+                        sx={{ 
+                          width: 16, 
+                          height: 16, 
+                          borderRadius: '50%', 
+                          backgroundColor: option?.color 
+                        }}
+                      />
+                      <span>{option?.label}</span>
+                    </Box>
+                  );
+                }}
+              >
+                {colorThemeOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box 
+                        sx={{ 
+                          width: 16, 
+                          height: 16, 
+                          borderRadius: '50%', 
+                          backgroundColor: option.color 
+                        }}
+                      />
+                      <span>{option.label}</span>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </AccordionDetails>
+      </Accordion>
+      
+      {/* Core Node Configuration */}
       <TextField
         label="Node Name"
         value={formData.name}
@@ -51,16 +182,8 @@ export const ConfigurationForm = ({
           onChange={(e) => handleFormChange('arrivalDist', e.target.value)}
           row
         >
-          <FormControlLabel
-            value="deterministic"
-            control={<Radio />}
-            label="Deterministic"
-          />
-          <FormControlLabel
-            value="exponential"
-            control={<Radio />}
-            label="Exponential"
-          />
+          <FormControlLabel value="deterministic" control={<Radio />} label="Deterministic" />
+          <FormControlLabel value="exponential" control={<Radio />} label="Exponential" />
         </RadioGroup>
         <TextField
           label="Arrival Rate"
@@ -79,16 +202,8 @@ export const ConfigurationForm = ({
           onChange={(e) => handleFormChange('serviceDist', e.target.value)}
           row
         >
-          <FormControlLabel
-            value="deterministic"
-            control={<Radio />}
-            label="Deterministic"
-          />
-          <FormControlLabel
-            value="exponential"
-            control={<Radio />}
-            label="Exponential"
-          />
+          <FormControlLabel value="deterministic" control={<Radio />} label="Deterministic" />
+          <FormControlLabel value="exponential" control={<Radio />} label="Exponential" />
         </RadioGroup>
         <TextField
           label="Service Rate"
@@ -100,6 +215,12 @@ export const ConfigurationForm = ({
         />
       </FormControl>
 
+      {/* Cosmetics Section in Accordion */}
+      
+
+      <Divider />
+
+      {/* Connections Section */}
       <Box>
         <FormLabel>Add Connection</FormLabel>
         <TextField
@@ -116,9 +237,7 @@ export const ConfigurationForm = ({
               <MenuItem 
                 key={node.id} 
                 value={node.id}
-                disabled={edges.some(
-                  edge => edge.source === selectedNode?.id && edge.target === node.id
-                )}
+                disabled={edges.some(edge => edge.source === selectedNode?.id && edge.target === node.id)}
               >
                 {node.data.name}
                 {node.id === selectedNode?.id ? " (self)" : ""}
@@ -144,18 +263,9 @@ export const ConfigurationForm = ({
                   size="small"
                   value={edgeWeights[edge.id] ?? edge.data.weight}
                   onChange={(e) => handleEdgeWeightChange(edge.id, parseFloat(e.target.value))}
-                  inputProps={{
-                    min: 0,
-                    max: 1,
-                    step: 0.1,
-                    style: { width: 80 }
-                  }}
+                  inputProps={{ min: 0, max: 1, step: 0.1, style: { width: 80 } }}
                 />
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => removeEdge(edge.id)}
-                >
+                <IconButton size="small" color="error" onClick={() => removeEdge(edge.id)}>
                   <DeleteIcon />
                 </IconButton>
               </Box>

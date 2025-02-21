@@ -5,7 +5,7 @@ import { Container, Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import NewProject from "./NewProject.js";
 import MyProjects from "./MyProjects.js";
-import NodeConfiguration from "./SimConfig/NodeConfiguration.js";
+import NodeConfiguration from "../SimConfig/NodeConfiguration.js";
 import Dashboard from "./Dashboard.js";
 import Portfolio from "./about.js"
 

@@ -57,7 +57,7 @@ const NodeConfigurationDialog = ({
       }));
     }
 
-    onClose();
+    onClose(); // resets the settings!
     setFormData(null);
     setEdgeWeights({});
   };
@@ -141,7 +141,7 @@ const NodeConfigurationDialog = ({
         Configure Node {formData?.name}
       </DialogTitle>
       <DialogContent>
-        {formData && (
+        {formData && ( // only show form if formData is availa
           <ConfigurationForm
             formData={formData}
             handleFormChange={handleFormChange}
