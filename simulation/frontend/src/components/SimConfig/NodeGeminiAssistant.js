@@ -1,5 +1,5 @@
 import React from 'react';
-import GeminiChatShell from './GeminiChatShell.js';
+import GeminiChatShell from '../Gemini/GeminiChatShell.js';
 import { Brightness7Rounded as AIIcon } from '@mui/icons-material';
 
 // Helper functions from original GeminiChatDialog.js
