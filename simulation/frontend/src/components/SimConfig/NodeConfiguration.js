@@ -17,16 +17,16 @@ import {
 import {
   Add as AddIcon,
   Save as SaveIcon,
-  AutoFixHigh as AIIcon,
+  Brightness7Rounded as AIIcon,
 } from '@mui/icons-material';
 
 import 'reactflow/dist/style.css';
 import '../../../static/css/NodeStyles.css';
 
 import NodeConfigurationDialog from './useNodeConfiguration.js';
-import GeminiChatDialog from './GeminiChatDialog.js';
+import NodeGeminiAssistant from './NodeGeminiAssistant.js';
 import { nodeTypes, updateNodeConnections } from './CustomNode.js';
-import { defaultEdgeOptions, onConnect, handleSave, fetchProjectData } from './NodeConfigurationUtils2.js';
+import { defaultEdgeOptions, onConnect, handleSave, fetchProjectData } from './NodeConfigurationUtils.js';
 
 const NodeConfiguration = () => {
   const { projectId } = useParams();
@@ -220,24 +220,24 @@ const NodeConfiguration = () => {
       </Box>
 
       <NodeConfigurationDialog
-        open={showNodeDialog}
-        onClose={() => setShowNodeDialog(false)}
-        selectedNode={selectedNode}
-        nodes={nodes}
-        edges={edges}
-        setNodes={setNodes}
-        setEdges={setEdges}
-      />
+      open={showNodeDialog}
+      onClose={() => setShowNodeDialog(false)}
+      selectedNode={selectedNode}
+      nodes={nodes}
+      edges={edges}
+      setNodes={setNodes}
+      setEdges={setEdges}
+    />
 
-      <GeminiChatDialog
-        open={showGeminiDialog}
-        onClose={() => setShowGeminiDialog(false)}
-        onApplyConfiguration={handleGeminiConfiguration}
-        messages={chatHistory}
-        setMessages={setChatHistory}
-      />
-    </Box>
-  );
+    <NodeGeminiAssistant
+      open={showGeminiDialog}
+      onClose={() => setShowGeminiDialog(false)}
+      onApplyConfiguration={handleGeminiConfiguration}
+      messages={chatHistory}
+      setMessages={setChatHistory}
+    />
+  </Box>
+);
 };
 
 export default NodeConfiguration;
