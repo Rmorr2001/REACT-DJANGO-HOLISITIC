@@ -4,6 +4,30 @@ import { useNavigate } from 'react-router-dom';
 const Portfolio = () => {
   const navigate = useNavigate();
 
+  // Set navbar color on mount and restore on unmount
+  useEffect(() => {
+    // Get navbar element
+    const navbar = document.querySelector('.MuiAppBar-root');
+    
+    // Store original background color to restore later
+    const originalBgColor = navbar ? navbar.style.backgroundColor : null;
+    
+    // Change navbar color to match the portfolio theme
+    if (navbar) {
+      navbar.style.backgroundColor = '#111111';
+      // Add a subtle bottom border to match the gold theme
+      navbar.style.borderBottom = '1px solid #D4AF37';
+    }
+    
+    // Restore original styling when component unmounts
+    return () => {
+      if (navbar) {
+        navbar.style.backgroundColor = originalBgColor || '#041E6A';
+        navbar.style.borderBottom = 'none';
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -31,7 +55,7 @@ const Portfolio = () => {
   return (
     <>
       <style>{`
-        .portfolio-wrapper {
+        .portfolio-container {
           --gold: #D4AF37;
           --gold-light: #F4C460;
           --black: #111111;
@@ -40,22 +64,18 @@ const Portfolio = () => {
           --light-grey: #888888;
           --white: #ffffff;
           
-          position: fixed;
-          top: 0;
-          left: 0;
           width: 100%;
-          height: 100%;
           background: var(--black);
           color: var(--light-grey);
           font-family: 'Helvetica Neue', Arial, sans-serif;
           line-height: 1.6;
-          overflow-y: auto;
+          min-height: calc(100vh - 64px); /* Account for navbar height */
         }
 
         .header {
           background: linear-gradient(135deg, var(--black), var(--dark-grey));
           color: var(--white);
-          padding: 8rem 2rem 4rem;
+          padding: 4rem 2rem 4rem;
           text-align: center;
           position: relative;
           overflow: hidden;
@@ -147,25 +167,6 @@ const Portfolio = () => {
           letter-spacing: 2px;
         }
 
-        .back-button {
-          position: fixed;
-          top: 1rem;
-          left: 1rem;
-          z-index: 1001;
-          background: var(--dark-grey);
-          color: var(--gold);
-          border: 1px solid var(--gold);
-          padding: 0.5rem 1rem;
-          border-radius: 2px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-
-        .back-button:hover {
-          background: var(--gold);
-          color: var(--black);
-        }
-
         .cta-button {
           display: inline-block;
           background: var(--dark-grey);
@@ -249,6 +250,13 @@ const Portfolio = () => {
           color: var(--white);
         }
 
+        .footer {
+          text-align: center;
+          padding: 2rem;
+          color: var(--light-grey);
+          border-top: 1px solid var(--dark-grey);
+        }
+
         /* Responsive adjustments for smaller screens */
         @media (max-width: 768px) {
           .header h1 {
@@ -266,17 +274,13 @@ const Portfolio = () => {
         }
       `}</style>
 
-      <div className="portfolio-wrapper">
-        <button className="back-button" onClick={() => navigate('/')}>
-          Back to Home
-        </button>
-
+      <div className="portfolio-container">
         <header className="header">
           <h1>Richard "RJ" Morrison</h1>
           <div className="profile-container">
             <img
               src="/static/images/Headshot.jpeg"
-              alt="Your Profile"
+              alt="RJ Morrison"
               className="profile-image"
             />
           </div>
@@ -335,6 +339,8 @@ const Portfolio = () => {
               <a
                 href="https://www.linkedin.com/in/richard-rj-morrison"
                 className="cta-button"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 CONNECT ON LINKEDIN
               </a>

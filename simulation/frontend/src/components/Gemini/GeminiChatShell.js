@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Brightness7Rounded as AIIcon,  // if I was less lasy this would be a universal variable...
+  AutoFixHigh as AIIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 
