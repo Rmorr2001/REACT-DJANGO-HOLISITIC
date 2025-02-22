@@ -7,8 +7,10 @@ COPY simulation/frontend/package.json simulation/frontend/package-lock.json* ./
 RUN npm install --legacy-peer-deps
 # Copy frontend source
 COPY simulation/frontend/ ./
-# Debug - list directory structure to see what files were copied
-RUN echo "Checking directory structure:" && ls -la /app/frontend/src/components
+# Debug - list directories and files
+RUN echo "Checking components directory:" && ls -la /app/frontend/src/components
+RUN echo "Checking Gemini directory:" && ls -la /app/frontend/src/components/Gemini
+RUN cat /app/frontend/src/components/app.js | head -20
 # Build frontend
 RUN npm run build
 
