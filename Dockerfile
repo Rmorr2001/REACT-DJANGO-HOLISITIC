@@ -1,17 +1,14 @@
 # Build stage for React frontend
 FROM node:20-slim as frontend-build
-
 WORKDIR /app/frontend
-
 # Copy package files
 COPY simulation/frontend/package.json simulation/frontend/package-lock.json* ./
-
 # Install dependencies with legacy peer deps flag
 RUN npm install --legacy-peer-deps
-
 # Copy frontend source
 COPY simulation/frontend/ ./
-
+# Debug - list directory structure to see what files were copied
+RUN echo "Checking directory structure:" && ls -la /app/frontend/src/components
 # Build frontend
 RUN npm run build
 
