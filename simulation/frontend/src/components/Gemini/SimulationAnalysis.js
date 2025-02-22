@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { useAIAssistant } from './AppGeminiAssistant.js';
+import { useAIAssistant } from './AIAssistantContext.js';
 import { Box, Typography, Button, Alert } from '@mui/material';
 import { AutoFixHigh as AIIcon } from '@mui/icons-material';
 
