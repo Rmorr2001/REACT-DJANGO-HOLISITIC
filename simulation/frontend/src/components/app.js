@@ -9,7 +9,7 @@ import NodeConfiguration from "./SimConfig/NodeConfiguration.js";
 import Dashboard from "./Dashboard/Dashboard.js";
 import Portfolio from "./Pages/about.js";
 import TechnicalAbout from "./Pages/TechnicalAbout.js";
-import AIAssistantProvider from "./Gemini/AiAssistantProvider.js";
+import AIAssistantProvider from "./Gemini/AIAssistantProvider.js";
 import AppNavbar from './AppNavbar.js';
 import AINavbarButton from "./Gemini/AiINavbarButton.js";
 
