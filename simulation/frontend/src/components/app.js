@@ -11,7 +11,7 @@ import Portfolio from "./Pages/about.js";
 import TechnicalAbout from "./Pages/TechnicalAbout.js";
 import AIAssistantProvider from "./Gemini/AIAssistantProvider.js";
 import AppNavbar from './AppNavbar.js';
-import AINavbarButton from "./Gemini/AiINavbarButton.js";
+import AINavbarButton from "./Gemini/AINavbarButton.js";
 
 function App() {
   // Wrap the entire app with error boundary for better debugging
