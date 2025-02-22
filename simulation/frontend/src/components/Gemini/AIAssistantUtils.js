@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   createProjectViaAPI, 
   saveNodesViaAPI, 
@@ -6,6 +5,8 @@ import {
   getSimulationResultsViaAPI,
   formatSimulationResults
 } from './AISimulationUtils.js';
+
+import { getAIAnalysisForSimulation } from './SimulationAssistantUtils.js';
 
 /**
  * Parses and processes AI action commands from response strings
@@ -249,6 +250,12 @@ export const executeAIAction = async (action, userData, navigate) => {
       case 'run_simulation':
         if (userData.currentProject?.id) {
           const results = await runSimulationViaAPI(userData.currentProject.id);
+          
+          // Navigate to results page if requested
+          if (action.navigate_to_results && navigate) {
+            navigate(`/projects/${userData.currentProject.id}/results`);
+          }
+          
           return { 
             success: true, 
             message: 'Simulation completed',
@@ -261,14 +268,44 @@ export const executeAIAction = async (action, userData, navigate) => {
         if (userData.currentProject?.id) {
           const results = await getSimulationResultsViaAPI(userData.currentProject.id);
           if (results) {
+            // Get enhanced analysis if requested
+            let formattedResults = formatSimulationResults(results);
+            
+            if (action.with_analysis) {
+              const analysis = getAIAnalysisForSimulation(results);
+              formattedResults = analysis;
+            }
+            
             return { 
               success: true, 
               message: 'Retrieved simulation results',
               results,
-              formattedResults: formatSimulationResults(results)
+              formattedResults
             };
           }
           return { success: false, message: 'No simulation results available' };
+        }
+        return { success: false, message: 'No project selected' };
+        
+      case 'analyze_simulation':
+        if (userData.currentProject?.id) {
+          const results = await getSimulationResultsViaAPI(userData.currentProject.id);
+          if (results) {
+            const analysis = getAIAnalysisForSimulation(results);
+            
+            // Navigate to results page if requested
+            if (action.navigate_to_results && navigate) {
+              navigate(`/projects/${userData.currentProject.id}/results`);
+            }
+            
+            return { 
+              success: true, 
+              message: 'Analyzed simulation results',
+              analysis,
+              formattedResults: analysis
+            };
+          }
+          return { success: false, message: 'No simulation results available to analyze' };
         }
         return { success: false, message: 'No project selected' };
         
@@ -292,7 +329,7 @@ export const executeAIAction = async (action, userData, navigate) => {
  * @returns {string} - Tailored system prompt
  */
 export const getSystemPrompt = (currentPage, userData) => {
-  let basePrompt = `You are an AI assistant for a queuing network simulation web application. You can help users create projects, configure network nodes, and run simulations.
+  let basePrompt = `You are an AI assistant for a queuing network simulation web application. You can help users create projects, configure network nodes, run simulations, and analyze results.
 
 Current page: ${currentPage}
 ${userData.currentProject ? `Current project: ${userData.currentProject.name} (ID: ${userData.currentProject.id})` : 'No project selected'}
@@ -312,8 +349,9 @@ Available actions:
 2. Create a project: { "type": "create_project", "name": "Project Name", "description": "Description" }
 3. Configure nodes: { "type": "configure_nodes", "project_id": 123, "nodes": [...], "edges": [...] }
 4. Create project and configure nodes: { "type": "create_and_configure", "project": {"name": "Project Name"}, "nodes": [...], "edges": [...] }
-5. Run simulation: { "type": "run_simulation" }
-6. Get simulation results: { "type": "get_simulation_results" }
+5. Run simulation: { "type": "run_simulation", "navigate_to_results": true }
+6. Get simulation results: { "type": "get_simulation_results", "with_analysis": false }
+7. Analyze simulation results: { "type": "analyze_simulation", "navigate_to_results": true }
 
 IMPORTANT: For node configuration, only "Deterministic" and "Exponential" distribution types are supported. Use the following format:
 
@@ -398,6 +436,15 @@ Or you can create a project and configure it all at once:
 }
 \`\`\`
 
+To analyze simulation results, use:
+
+\`\`\`action
+{
+  "type": "analyze_simulation",
+  "navigate_to_results": true
+}
+\`\`\`
+
 Make sure each node has a unique ID in the format "node-0", "node-1", etc. The first node (node-0) should have an arrival rate > 0, while other nodes typically have arrival rate = 0. Each edge must have valid source and target node IDs, and a weight between 0 and 1.`;
 
   // Add page-specific context
@@ -406,7 +453,7 @@ Make sure each node has a unique ID in the format "node-0", "node-1", etc. The f
   } else if (currentPage.includes('/nodes') && userData.nodes.length > 0) {
     basePrompt += `\n\nCurrent node configuration:\n${JSON.stringify(userData.nodes, null, 2)}`;
   } else if ((currentPage.includes('/simulate') || currentPage.includes('/results')) && userData.simulationResults) {
-    basePrompt += `\n\nLatest simulation results available. You can describe key metrics like utilization, waiting times, etc.`;
+    basePrompt += `\n\nLatest simulation results available. You can analyze key metrics like utilization, waiting times, etc.`;
   }
   
   return basePrompt;
@@ -427,8 +474,8 @@ export const getWelcomeMessage = (currentPage) => {
   
   if (currentPage.includes('/projects/') && (currentPage.includes('/simulate') || currentPage.includes('/results'))) {
     return {
-      title: "Ready to run your simulation?",
-      description: "I can help you set up simulation parameters, explain what different options mean, or assist with interpreting results."
+      title: "Ready to analyze your simulation?",
+      description: "I can help you interpret results, explain what different metrics mean, or suggest improvements to your network configuration."
     };
   }
   
@@ -441,6 +488,6 @@ export const getWelcomeMessage = (currentPage) => {
   
   return {
     title: "How can I help with your queuing network project?",
-    description: "I can help you create a new project, configure network nodes, or run simulations. What would you like to do?"
+    description: "I can help you create a new project, configure network nodes, run simulations, or analyze results. What would you like to do?"
   };
 };

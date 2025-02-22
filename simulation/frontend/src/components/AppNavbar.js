@@ -6,13 +6,25 @@ import {
   Box, 
   Button,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { ExpandMore } from '@mui/icons-material';
 
 const AppNavbar = ({ aiButton }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [aboutMenu, setAboutMenu] = React.useState(null);
+
+  const handleAboutClick = (event) => {
+    setAboutMenu(event.currentTarget);
+  };
+
+  const handleAboutClose = () => {
+    setAboutMenu(null);
+  };
 
   return (
     <AppBar 
@@ -36,7 +48,7 @@ const AppNavbar = ({ aiButton }) => {
             flexGrow: 0
           }}
         >
-          SimpleTalk
+          SimpleTalk - BETA 0.1
         </Typography>
 
         {/* AI Button next to the logo */}
@@ -66,13 +78,33 @@ const AppNavbar = ({ aiButton }) => {
           </Button>
           
           <Button 
-            color="inherit" 
-            component={RouterLink} 
-            to="/about"
+            color="inherit"
             sx={{ mx: 0.5 }}
+            onClick={handleAboutClick}
+            endIcon={<ExpandMore />}
           >
             About
           </Button>
+          <Menu
+            anchorEl={aboutMenu}
+            open={Boolean(aboutMenu)}
+            onClose={handleAboutClose}
+          >
+            <MenuItem 
+              component={RouterLink} 
+              to="/about"
+              onClick={handleAboutClose}
+            >
+              Developer
+            </MenuItem>
+            <MenuItem 
+              component={RouterLink} 
+              to="/technical-about"
+              onClick={handleAboutClose}
+            >
+              Technology
+            </MenuItem>
+          </Menu>
         </Box>
       </Toolbar>
     </AppBar>

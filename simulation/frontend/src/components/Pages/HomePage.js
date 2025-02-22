@@ -269,10 +269,6 @@ function HomePage() {
                   </ListItem>
                   <ListItem>
                     <ListItemIcon>✓</ListItemIcon>
-                    <ListItemText primary="Export simulation data for further analysis" />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>✓</ListItemIcon>
                     <ListItemText primary="Create and share classroom assignments" />
                   </ListItem>
                   <ListItem>
@@ -286,17 +282,17 @@ function HomePage() {
         </Container>
       </Box>
 
-      {/* How It Works Section */}
-      <Container maxWidth="md" sx={{ py: 6 }}>
+       {/* How It Works Section */}
+       <Container maxWidth="md" sx={{ py: 6 }}>
         <Typography variant="h4" component="h2" align="center" gutterBottom>
           How It Works
         </Typography>
         <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 5 }}>
-          Four simple steps to better service efficiency
+          Three simple steps to better service efficiency
         </Typography>
 
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <Box sx={{ 
                 width: 60, 
@@ -318,7 +314,7 @@ function HomePage() {
             </Box>
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <Box sx={{ 
                 width: 60, 
@@ -340,7 +336,7 @@ function HomePage() {
             </Box>
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <Box sx={{ 
                 width: 60, 
@@ -355,31 +351,9 @@ function HomePage() {
                 fontWeight: 'bold',
                 mb: 2
               }}>3</Box>
-              <Typography variant="h6" gutterBottom>Run the Simulation</Typography>
+              <Typography variant="h6" gutterBottom>Run & Analyze</Typography>
               <Typography color="text.secondary">
-                Watch the simulation in action with our clear visual representation
-              </Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <Box sx={{ 
-                width: 60, 
-                height: 60, 
-                borderRadius: '50%', 
-                bgcolor: '#1976d2', 
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 24,
-                fontWeight: 'bold',
-                mb: 2
-              }}>4</Box>
-              <Typography variant="h6" gutterBottom>Analyze Results</Typography>
-              <Typography color="text.secondary">
-                Review key metrics and recommendations to improve your service efficiency
+                Execute your simulation and review key metrics and recommendations to improve efficiency
               </Typography>
             </Box>
           </Grid>
@@ -402,7 +376,8 @@ function HomePage() {
       <Box sx={{ bgcolor: '#e3f2fd', py: 6 }}>
         <Container maxWidth="md" sx={{ textAlign: 'center' }}>
           <Typography variant="h5" component="p" sx={{ fontStyle: 'italic', mb: 3 }}>
-            "SimpleTalk is like having a professor, an engineer, and a simulation software all in one package!"
+            "SimpleTalk is like having an engineer, a teacher, <br />
+            and a simulation software wrapped in one package!"
           </Typography>
           <Typography variant="subtitle1" component="p" fontWeight="bold">
             — RJ Morrison, Developer
@@ -411,7 +386,7 @@ function HomePage() {
       </Box>
 
       {/* Footer */}
-      <Box sx={{ bgcolor: '#1976d2', color: 'white', py: 4 }}>
+      <Box sx={{ bgcolor: '#041E6A', color: 'white', py: 4 }}>
         <Container maxWidth="lg">
           <Grid container spacing={4}>
             <Grid item xs={12} md={6}>

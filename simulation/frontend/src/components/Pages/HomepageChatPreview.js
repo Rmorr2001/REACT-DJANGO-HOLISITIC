@@ -8,7 +8,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Send as SendIcon, AutoFixHigh as AIIcon } from '@mui/icons-material';
- import { useAIAssistant } from '../Gemini/AppGeminiAssistant.js';
+ import { useAIAssistant } from '../Gemini/AIAssistantContext.js';
 import { getSystemPrompt } from '../Gemini/AIAssistantUtils.js';
 import { useLocation } from 'react-router-dom';
 
@@ -146,7 +146,7 @@ ${userMessage}`
       {/* Header */}
       <Box sx={{ 
         p: 2, 
-        bgcolor: '#1976d2', 
+        bgcolor: '#041E6A', 
         color: 'white',
         display: 'flex',
         alignItems: 'center',

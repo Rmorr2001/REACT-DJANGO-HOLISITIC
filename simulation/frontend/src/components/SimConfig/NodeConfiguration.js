@@ -21,7 +21,7 @@ import {
   AutoFixHigh as AIIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useAIAssistant } from '../Gemini/AppGeminiAssistant.js';
+import { useAIAssistant } from '../Gemini/AIAssistantContext.js';
 
 import 'reactflow/dist/style.css';
 import '../../../static/css/NodeStyles.css';
