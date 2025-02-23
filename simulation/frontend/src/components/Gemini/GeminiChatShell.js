@@ -8,6 +8,8 @@ import {
   IconButton,
   CircularProgress,
   Divider,
+  Button,
+  Card,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -36,6 +38,7 @@ const GeminiChatShell = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [processingResponse, setProcessingResponse] = useState(false);
+  const [showTips, setShowTips] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -184,6 +187,14 @@ ${userMessage}`
                 {welcomeMessage.description}
               </Typography>
             )}
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setShowTips(true)}
+              sx={{ mt: 2 }}
+            >
+              Show AI Usage Tips
+            </Button>
           </Box>
         ) : (
           <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
@@ -280,8 +291,75 @@ ${userMessage}`
           </Box>
         )}
       </Box>
+
+      <TipsDialog open={showTips} onClose={() => setShowTips(false)} />
     </Dialog>
   );
 };
+
+const TipsDialog = ({ open, onClose }) => (
+  <Dialog 
+    open={open} 
+    onClose={onClose}
+    maxWidth="sm"
+    fullWidth
+  >
+    <Card sx={{ 
+      p: 3,
+      backgroundColor: '#f8fafc',
+      boxShadow: 3,
+    }}>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1,
+        mb: 2
+      }}>
+        <AIIcon color="primary" />
+        <Typography variant="h6" fontWeight="bold">AI Assistant Tips</Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <IconButton size="small" onClick={onClose}>
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
+      <Typography variant="body1" sx={{ mb: 2 }}>
+        🚧 <strong>Beta Status</strong> 🚧
+      </Typography>
+
+      <Typography variant="body1" sx={{ mb: 2 }}>
+        ✨ <strong>Key Phrases That Work Well</strong>
+      </Typography>
+
+      <Box component="ul" sx={{ mb: 3, pl: 2 }}>
+        <Typography component="li">"Create a new project for a restaurant simulation"</Typography>
+        <Typography component="li">"Help me configure nodes for a retail store"</Typography>
+        <Typography component="li">"Analyze my simulation results"</Typography>
+        <Typography component="li">"Explain what utilization means"</Typography>
+        <Typography component="li">"Show me a basic queue setup"</Typography>
+      </Box>
+
+      <Typography variant="body1" sx={{ mb: 2 }}>
+        💡 <strong>Configuration Tips</strong>
+      </Typography>
+
+      <Box component="ul" sx={{ mb: 3, pl: 2 }}>
+        <Typography component="li">Start with simple requests</Typography>
+        <Typography component="li">Mention specific numbers (servers, arrival rates)</Typography>
+        <Typography component="li">Be explicit about connections between nodes</Typography>
+      </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        🚧 This AI assistant is currently in beta. 🚧 <br/> While it's designed to help you with queuing simulations, it might occasionally:
+        <Box component="ul" sx={{ pl: 2 }}>
+          <Typography component="li">Give confusing responses about JSON configurations</Typography>
+          <Typography component="li">Misunderstand complex requests</Typography>
+          <Typography component="li">Need rephrasing of questions</Typography>
+        </Box>
+        Need to start over? Just refresh the page or close and reopen the assistant.
+      </Typography>
+    </Card>
+  </Dialog>
+);
 
 export default GeminiChatShell;

@@ -153,7 +153,7 @@ const SimulationVisualizer = ({ results }) => {
           <h3 className="text-lg font-medium mb-2">System Overview</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white p-3 rounded shadow">
-              <p className="text-sm text-gray-500">Total Customers</p>
+              <p className="text-sm text-gray-500">Total Transactions</p>
               <p className="text-xl font-semibold">{systemData.total_customers || 'N/A'}</p>
             </div>
             <div className="bg-white p-3 rounded shadow">

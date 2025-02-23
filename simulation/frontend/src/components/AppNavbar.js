@@ -48,7 +48,7 @@ const AppNavbar = ({ aiButton }) => {
             flexGrow: 0
           }}
         >
-          SimpleTalk - BETA 0.1
+          SimpleTalk - BETA 0.2
         </Typography>
 
         {/* AI Button next to the logo */}

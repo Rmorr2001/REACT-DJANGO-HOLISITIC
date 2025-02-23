@@ -1,8 +1,13 @@
 import React from 'react';
-import { Grid, Card, CardContent, Typography, Box } from '@mui/material';
-import { BarChart as ChartIcon } from '@mui/icons-material';
+import { Grid, Card, CardContent, Typography, Box, Tooltip } from '@mui/material';
+import { 
+  Users, 
+  Clock, 
+  TimerOff, 
+  Timer,
+  Info as InfoIcon 
+} from 'lucide-react';
 
-// Helper function for formatting time
 const formatTime = (minutes) => {
   if (minutes === undefined || minutes === null) return 'N/A';
   if (minutes < 1) return `${(minutes * 60).toFixed(1)} sec`;
@@ -10,26 +15,51 @@ const formatTime = (minutes) => {
   return `${(minutes / 60).toFixed(1)} hr`;
 };
 
-// Custom card component for metrics
-const MetricCard = ({ title, value, subtitle, isTime = false, isPercent = false, icon, color }) => (
+const formatConfidenceInterval = (ci, isTime = false) => {
+  if (!ci || !ci.lower || !ci.upper) return null;
+  return `${formatTime(ci.lower)} - ${formatTime(ci.upper)}`;
+};
+
+const MetricCard = ({ 
+  title, 
+  value, 
+  subtitle, 
+  icon: Icon, 
+  color = "primary.main",
+  isTime = false,
+  confidenceInterval = null,
+  tooltip
+}) => (
   <Card sx={{ height: '100%', boxShadow: 2 }}>
-    <CardContent sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-        {icon && (
-          <Box sx={{ mr: 1, color: color || 'primary.main' }}>
-            {icon}
+    <CardContent>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        {Icon && (
+          <Box sx={{ mr: 1, color }}>
+            <Icon size={24} />
           </Box>
         )}
-        <Typography variant="subtitle2" color="textSecondary">
-          {title}
-        </Typography>
+        <Box sx={{ flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2" color="textSecondary">
+              {title}
+            </Typography>
+            <Tooltip title={tooltip}>
+              <InfoIcon size={16} />
+            </Tooltip>
+          </Box>
+        </Box>
       </Box>
-      <Typography variant="h4" sx={{ mb: 1, color: color || 'text.primary' }}>
-        {isTime ? formatTime(value) : 
-         isPercent ? `${(value * 100).toFixed(1)}%` : 
-         typeof value === 'number' ? value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : 
-         value || 'N/A'}
+
+      <Typography variant="h4" sx={{ mb: 1, color }}>
+        {isTime ? formatTime(value) : value?.toLocaleString(undefined, { maximumFractionDigits: 2 }) || 'N/A'}
       </Typography>
+
+      {confidenceInterval && (
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+          95% CI: {formatConfidenceInterval(confidenceInterval, isTime)}
+        </Typography>
+      )}
+
       {subtitle && (
         <Typography variant="body2" color="textSecondary">
           {subtitle}
@@ -39,41 +69,47 @@ const MetricCard = ({ title, value, subtitle, isTime = false, isPercent = false,
   </Card>
 );
 
-const SystemOverviewMetrics = ({ stats }) => {
-  // Early return if no stats available
+const SystemOverviewMetrics = ({ stats, metadata }) => {
   if (!stats) return null;
 
-  // Handle both the new and legacy data formats
   const metrics = [
     {
-      title: "Total Customers",
+      title: "Total Transactions",
       value: stats.total_customers,
       subtitle: "Processed in simulation",
-      icon: <ChartIcon />
+      icon: Users,
+      confidenceInterval: stats.total_customers_ci,
+      tooltip: "Total number of transactions. Each time a customer is processed, it is counted as a transaction. A customer can be processed multiple times if they pass through nodes multiple times."
     },
     {
       title: "Avg Service Time",
       value: stats.overall_service_time?.mean,
       subtitle: `90th percentile: ${formatTime(stats.overall_service_time?.percentiles?.['90'])}`,
+      icon: Timer,
+      color: "success.main",
       isTime: true,
-      icon: <ChartIcon />,
-      color: "success.main"
+      confidenceInterval: stats.overall_service_time?.confidence_interval,
+      tooltip: "Average time spent receiving service at stations, excluding waiting time. The 90th percentile indicates that 90% of customers were served within this time"
     },
     {
       title: "Avg Waiting Time",
       value: stats.overall_waiting_time?.mean,
       subtitle: `90th percentile: ${formatTime(stats.overall_waiting_time?.percentiles?.['90'])}`,
+      icon: TimerOff,
+      color: "warning.main",
       isTime: true,
-      icon: <ChartIcon />,
-      color: "warning.main"
+      confidenceInterval: stats.overall_waiting_time?.confidence_interval,
+      tooltip: "Average time customers spent waiting in queues before receiving service. The 90th percentile shows the maximum wait time for 90% of customers"
     },
     {
       title: "Avg Flow Time",
       value: stats.overall_flow_time?.mean,
       subtitle: `90th percentile: ${formatTime(stats.overall_flow_time?.percentiles?.['90'])}`,
+      icon: Clock,
+      color: "info.main",
       isTime: true,
-      icon: <ChartIcon />,
-      color: "info.main"
+      confidenceInterval: stats.overall_flow_time?.confidence_interval,
+      tooltip: "Total time spent in the system (service time + waiting time). This represents the complete customer journey from entry to exit"
     }
   ];
 
