@@ -3,230 +3,201 @@
  * and provide recommendations
  */
 
+import { processSimulationData } from '../Dashboard/simulationDataProcessor.js';
+import { formatSimulationResults } from './AISimulationUtils.js';
+
 /**
  * Analyzes simulation results and returns insights
  * @param {Object} results - The simulation results object
  * @returns {Object} Analysis with insights and recommendations
  */
 export const analyzeSimulationResults = (results) => {
-    if (!results || !results.analysis) {
-      return {
-        insights: [],
-        recommendations: [],
-        summary: "No simulation results to analyze."
-      };
+  if (!results || !results.system_metrics) {
+    return {
+      insights: [],
+      recommendations: [],
+      summary: "No simulation results to analyze."
+    };
+  }
+  
+  const insights = [];
+  const recommendations = [];
+  
+  try {
+    const systemMetrics = results.system_metrics;
+    const nodeMetrics = results.node_metrics;
+    
+    // System-level insights
+    if (systemMetrics) {
+      const systemUtil = systemMetrics.system_utilization;
+      const avgWait = systemMetrics.avg_system_wait;
+      const avgQueue = systemMetrics.avg_system_queue;
+      
+      if (systemUtil > 0.85) {
+        insights.push(`System utilization is very high (${(systemUtil * 100).toFixed(1)}%).`);
+        recommendations.push("Consider adding more capacity to the system.");
+      }
+      
+      if (avgWait > 10) {
+        insights.push(`Average system wait time (${avgWait.toFixed(2)} min) is high.`);
+        recommendations.push("Look for bottlenecks in the system that may be causing delays.");
+      }
     }
     
-    const insights = [];
-    const recommendations = [];
+    // Node-level analysis
+    if (nodeMetrics && Array.isArray(nodeMetrics)) {
+      nodeMetrics.forEach((node, index) => {
+        const nodeName = node.name || `Node ${index}`;
+        
+        if (node.utilization > 0.85) {
+          insights.push(`${nodeName} has high utilization (${(node.utilization * 100).toFixed(1)}%).`);
+          recommendations.push(`Consider adding more servers to ${nodeName}.`);
+        }
+        
+        if (node.avg_wait_time > 5) {
+          insights.push(`${nodeName} has high average wait time (${node.avg_wait_time.toFixed(2)} min).`);
+        }
+      });
+    }
     
-    try {
-      const systemStats = results.analysis.system_stats;
-      const nodeStats = results.analysis.node_statistics;
-      const utilization = results.utilization;
-      
-      // System-level insights
-      if (systemStats) {
-        // Check overall waiting time
-        const avgWaitTime = systemStats.overall_waiting_time?.mean || 0;
-        if (avgWaitTime > 10) {
-          insights.push(`Average waiting time (${avgWaitTime.toFixed(2)} min) is high across the system.`);
-          recommendations.push("Consider adding more servers to reduce wait times.");
-        }
-        
-        // Check overall flow time
-        const avgFlowTime = systemStats.overall_flow_time?.mean || 0;
-        if (avgFlowTime > 15) {
-          insights.push(`Average customer time in system (${avgFlowTime.toFixed(2)} min) is significant.`);
-          recommendations.push("Look for bottleneck nodes that might be slowing down overall throughput.");
-        }
-      }
-      
-      // Node-level analysis
-      if (nodeStats && utilization) {
-        // Find bottlenecks (high utilization)
-        const bottlenecks = [];
-        const underutilized = [];
-        const highWaitTimes = [];
-        
-        Object.entries(nodeStats).forEach(([nodeId, stats]) => {
-          const nodeIndex = parseInt(nodeId) - 1;
-          const nodeUtil = utilization[nodeIndex]?.utilization_rate || 0;
-          const nodeName = `Node ${nodeId}`;
-          const waitTime = stats.waiting_time?.mean || 0;
-          
-          // Check utilization
-          if (nodeUtil > 0.85) {
-            bottlenecks.push({
-              node: nodeName,
-              utilization: nodeUtil,
-              waitTime: waitTime
-            });
-            
-            insights.push(`${nodeName} has high utilization (${(nodeUtil * 100).toFixed(1)}%).`);
-          } 
-          else if (nodeUtil < 0.3 && nodeId !== "1") { // Ignore entry nodes which might have low utilization
-            underutilized.push({
-              node: nodeName,
-              utilization: nodeUtil
-            });
-            
-            insights.push(`${nodeName} has low utilization (${(nodeUtil * 100).toFixed(1)}%).`);
-          }
-          
-          // Check wait times
-          if (waitTime > 5) {
-            highWaitTimes.push({
-              node: nodeName,
-              waitTime: waitTime
-            });
-            
-            insights.push(`${nodeName} has high average wait time (${waitTime.toFixed(2)} min).`);
-          }
-        });
-        
-        // Generate specific recommendations for bottlenecks
-        if (bottlenecks.length > 0) {
-          bottlenecks.forEach(bottleneck => {
-            recommendations.push(`Consider adding servers to ${bottleneck.node} to reduce its high utilization (${(bottleneck.utilization * 100).toFixed(1)}%).`);
-          });
-        }
-        
-        // Recommendations for underutilized nodes
-        if (underutilized.length > 0) {
-          underutilized.forEach(node => {
-            recommendations.push(`${node.node} is underutilized (${(node.utilization * 100).toFixed(1)}%). Consider reducing servers or redirecting traffic to this node.`);
-          });
-        }
-        
-        // Recommendations for high wait times
-        if (highWaitTimes.length > 0 && highWaitTimes.length !== bottlenecks.length) {
-          // Only add this if not already covered by bottleneck recommendations
-          const waitTimeNodes = highWaitTimes
-            .filter(n => !bottlenecks.find(b => b.node === n.node))
-            .map(n => n.node)
-            .join(", ");
-            
-          if (waitTimeNodes) {
-            recommendations.push(`Reduce queuing at ${waitTimeNodes} to improve customer wait times.`);
-          }
-        }
-      }
-      
-      // If no specific insights were found
-      if (insights.length === 0) {
-        insights.push("The simulation appears to be running efficiently with no major issues detected.");
-      }
-      
-      if (recommendations.length === 0) {
-        recommendations.push("No specific improvements needed; the current configuration appears optimal.");
-      }
-      
-      // Generate a summary
-      const summary = generateSummary(results, insights, recommendations);
-      
-      return {
-        insights,
-        recommendations,
-        summary
-      };
-    } catch (error) {
-      console.error("Error analyzing simulation results:", error);
-      return {
-        insights: ["Error analyzing simulation results."],
-        recommendations: ["Try running the simulation again with different parameters."],
-        summary: "Could not analyze simulation results due to an error."
-      };
+    // Add default insights if none found
+    if (insights.length === 0) {
+      insights.push("The simulation appears to be running efficiently with no major issues detected.");
     }
-  };
-  
-  /**
-   * Generates a summary of the simulation results
-   * @param {Object} results - The simulation results 
-   * @param {Array} insights - Insights derived from analysis
-   * @param {Array} recommendations - Recommendations based on analysis
-   * @returns {string} A formatted summary
-   */
-  const generateSummary = (results, insights, recommendations) => {
-    try {
-      const systemStats = results.analysis.system_stats;
-      
-      // Key metrics
-      // Correct customer count calculation in analyzeSimulationResults function
-      const totalCustomers = systemStats.total_completed || 0; // Use completed count instead of total
-      const avgWaitTime = systemStats.overall_waiting_time?.mean || 0;
-      const avgServiceTime = systemStats.overall_service_time?.mean || 0;
-      const avgFlowTime = systemStats.overall_flow_time?.mean || 0;
-      
-      // Utilization information
-      let avgUtilization = 0;
-      let highestUtilNode = { id: 0, utilization: 0 };
-      let lowestUtilNode = { id: 0, utilization: 1 };
-      
-      if (results.utilization) {
-        const utils = Object.entries(results.utilization).map(([idx, data]) => {
-          const nodeId = parseInt(idx) + 1;
-          const util = data.utilization_rate;
-          
-          if (util > highestUtilNode.utilization) {
-            highestUtilNode = { id: nodeId, utilization: util };
-          }
-          
-          if (util < lowestUtilNode.utilization && util > 0) {
-            lowestUtilNode = { id: nodeId, utilization: util };
-          }
-          
-          return util;
-        });
-        
-        avgUtilization = utils.reduce((sum, val) => sum + val, 0) / utils.length;
-      }
-      
-      // Format the summary
-      let summary = `## Simulation Results Summary\n\n`;
-      
-      summary += `This simulation processed **${totalCustomers}** customers with an average wait time of ` +
-        `**${avgWaitTime.toFixed(2)} minutes** and service time of **${avgServiceTime.toFixed(2)} minutes**.\n\n`;
-        
-      summary += `Total average time in system (flow time): **${avgFlowTime.toFixed(2)} minutes**.\n\n`;
-      
-      summary += `Average utilization across all nodes: **${(avgUtilization * 100).toFixed(1)}%**\n\n`;
-      
-      if (highestUtilNode.id > 0) {
-        summary += `Highest utilization: **Node ${highestUtilNode.id}** at ` +
-          `**${(highestUtilNode.utilization * 100).toFixed(1)}%**\n\n`;
-      }
-      
-      // Key insights section
-      if (insights.length > 0) {
-        summary += `### Key Insights\n\n`;
-        insights.forEach(insight => {
-          summary += `- ${insight}\n`;
-        });
-        summary += `\n`;
-      }
-      
-      // Recommendations section
-      if (recommendations.length > 0) {
-        summary += `### Recommendations\n\n`;
-        recommendations.forEach(rec => {
-          summary += `- ${rec}\n`;
-        });
-      }
-      
-      return summary;
-    } catch (error) {
-      console.error("Error generating summary:", error);
-      return "Could not generate a summary due to an error in the results format.";
+    
+    if (recommendations.length === 0) {
+      recommendations.push("Current configuration appears optimal.");
     }
-  };
+    
+    return {
+      insights,
+      recommendations,
+      summary: generateSummary(results, insights, recommendations)
+    };
+  } catch (error) {
+    console.error("Error analyzing simulation results:", error);
+    return {
+      insights: ["Error analyzing simulation results."],
+      recommendations: ["Try running the simulation again."],
+      summary: "Could not analyze simulation results due to an error."
+    };
+  }
+};
   
-  /**
-   * Integrates with the AI assistant to analyze simulation results
-   * @param {Object} results - Simulation results object
-   * @returns {string} Formatted analysis for the AI to use in responses
-   */
-  export const getAIAnalysisForSimulation = (results) => {
-    const analysis = analyzeSimulationResults(results);
-    return analysis.summary;
+/**
+ * Generates a summary of the simulation results
+ * @param {Object} results - The simulation results 
+ * @param {Array} insights - Insights derived from analysis
+ * @param {Array} recommendations - Recommendations based on analysis
+ * @returns {string} A formatted summary
+ */
+const generateSummary = (results, insights, recommendations) => {
+  try {
+    const systemMetrics = results.system_metrics;
+    
+    // Key metrics
+    const totalCustomers = systemMetrics.total_customers || 0;
+    const avgWaitTime = systemMetrics.avg_system_wait || 0;
+    const avgServiceTime = systemMetrics.avg_service_time || 0;
+    const systemUtil = systemMetrics.system_utilization || 0;
+    
+    // Format the summary
+    let summary = `## Simulation Results Summary\n\n`;
+    
+    summary += `This simulation processed **${totalCustomers}** customers with:\n\n`;
+    summary += `- Average wait time: **${avgWaitTime.toFixed(2)} minutes**\n`;
+    summary += `- Average service time: **${avgServiceTime.toFixed(2)} minutes**\n`;
+    summary += `- System utilization: **${(systemUtil * 100).toFixed(1)}%**\n\n`;
+    
+    // Node-specific metrics
+    if (results.node_metrics && Array.isArray(results.node_metrics)) {
+      summary += `### Node Performance\n\n`;
+      results.node_metrics.forEach((node, index) => {
+        summary += `**${node.name || `Node ${index + 1}`}**:\n`;
+        summary += `- Utilization: ${(node.utilization * 100).toFixed(1)}%\n`;
+        summary += `- Average wait time: ${node.avg_wait_time.toFixed(2)} min\n`;
+        summary += `- Queue length: ${node.avg_queue_length.toFixed(2)}\n\n`;
+      });
+    }
+    
+    // Add insights and recommendations
+    if (insights.length > 0) {
+      summary += `### Key Insights\n\n`;
+      insights.forEach(insight => summary += `- ${insight}\n`);
+      summary += '\n';
+    }
+    
+    if (recommendations.length > 0) {
+      summary += `### Recommendations\n\n`;
+      recommendations.forEach(rec => summary += `- ${rec}\n`);
+    }
+    
+    return summary;
+  } catch (error) {
+    console.error("Error generating summary:", error);
+    return "Could not generate summary due to an error in the results format.";
+  }
+};
+  
+/**
+ * Integrates with the AI assistant to analyze simulation results
+ * @param {Object} results - Simulation results object
+ * @returns {string} Formatted analysis for the AI to use in responses
+ */
+export const getAIAnalysisForSimulation = (results) => {
+  const transformedResults = transformSimulationResults(results);
+  if (!transformedResults) {
+    return formatSimulationResults(results) || "No simulation results available to analyze.";
+  }
+  const analysis = analyzeSimulationResults(transformedResults);
+  return analysis.summary;
+};
+
+export const handleSimulationResultUpdate = (results, setMessages) => {
+  if (!results) return;
+  
+  const analysis = getAIAnalysisForSimulation(results);
+  
+  setMessages(prev => {
+    const newMessages = [...prev];
+    // First message: Raw analysis
+    newMessages.push({
+      role: 'assistant',
+      content: analysis
+    });
+    // Second message: Explanation prompt
+    newMessages.push({
+      role: 'assistant',
+      content: "I've provided the analysis above. Would you like me to explain any specific aspect in more detail, or would you like recommendations for improving the network's performance?"
+    });
+    return newMessages;
+  });
+};
+
+const transformSimulationResults = (rawResults) => {
+  // First check if we have any results
+  if (!rawResults || !rawResults.summary_stats) {
+    return null;
+  }
+
+  // Process the raw data using the dashboard processor
+  const processed = processSimulationData(rawResults);
+  
+  // Transform into the format expected by the analysis functions
+  return {
+    system_metrics: {
+      system_utilization: processed.system.overall_service_time.mean / processed.system.overall_flow_time.mean || 0,
+      avg_system_wait: processed.system.overall_waiting_time.mean || 0,
+      avg_system_queue: processed.nodes.reduce((sum, node) => sum + (node.avgQueue || 0), 0) / processed.nodes.length,
+      system_throughput: processed.nodes[0]?.throughput?.completed || 0,
+      total_customers: processed.system.total_customers || 0
+    },
+    node_metrics: processed.nodes.map(node => ({
+      name: node.name,
+      utilization: node.utilization || 0,
+      avg_wait_time: node.waitTime || 0,
+      avg_queue_length: node.avgQueue || 0,
+      throughput: node.throughput?.completed || 0
+    }))
   };
+};

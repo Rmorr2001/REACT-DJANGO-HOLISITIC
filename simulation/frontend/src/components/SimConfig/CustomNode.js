@@ -1,5 +1,6 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
+import * as MUIIcons from '@mui/icons-material';
 
 export const CustomNode = ({ id, data, isConnectable }) => {
   const hasIncoming = data.incomingConnections > 0 || data.arrivalRate > 0;
@@ -7,8 +8,34 @@ export const CustomNode = ({ id, data, isConnectable }) => {
   const hasSelfConnection = data.connections?.some(conn => conn.target === id);
   const serverCount = Math.min(data.numberOfServers, 4);
   
+  // Extract style properties with defaults
+  const style = data.style || {};
+  const {
+    backgroundColor = '#f8faff',
+    borderColor = '#bfdbfe',
+    borderWidth = 2,
+    borderStyle = 'solid',
+    borderRadius = 12,
+    icon = null,
+    iconColor = '#1e40af'
+  } = style;
+
+  // Get the icon component if specified
+  const IconComponent = icon ? MUIIcons[icon] : null;
+
   return (
-    <div className="custom-node">
+    <div 
+      className="custom-node"
+      style={{
+        background: backgroundColor,
+        borderColor,
+        borderWidth,
+        borderStyle,
+        borderRadius,
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        color: iconColor
+      }}
+    >
       <Handle
         type="target"
         position={Position.Top}
@@ -45,7 +72,18 @@ export const CustomNode = ({ id, data, isConnectable }) => {
         </div>
       )}
       
-      <div className="node-title">{data.name}</div>
+      <div className="node-title" style={{ color: iconColor }}>
+        {IconComponent && (
+          <IconComponent 
+            className="node-icon"
+            sx={{ 
+              fontSize: '2rem',
+              color: iconColor,
+            }}
+          />
+        )}
+        {data.name}
+      </div>
       
       <div className="servers-container">
         {[...Array(serverCount)].map((_, i) => (
@@ -62,20 +100,19 @@ export const CustomNode = ({ id, data, isConnectable }) => {
         )}
       </div>
       
-      <div className="metrics-container">
+      <div className="metrics-container" style={{ color: iconColor }}>
         <div className="metric-row">
-          <span className="metric-label">Arrival (λ):</span>
-          <div className="metric-value">
-            <span className="metric-number">{data.arrivalRate}</span>
-            <span className="metric-dist">({data.arrivalDist.slice(0, 3)})</span>
-          </div>
-        </div>
-        
-        <div className="metric-row">
-          <span className="metric-label">Service (μ):</span>
+          <span className="metric-label">Service Rate:</span>
           <div className="metric-value">
             <span className="metric-number">{data.serviceRate}</span>
-            <span className="metric-dist">({data.serviceDist.slice(0, 3)})</span>
+            <span className="metric-dist">{data.serviceDist}</span>
+          </div>
+        </div>
+        <div className="metric-row">
+          <span className="metric-label">Arrival Rate:</span>
+          <div className="metric-value">
+            <span className="metric-number">{data.arrivalRate}</span>
+            <span className="metric-dist">{data.arrivalDist}</span>
           </div>
         </div>
       </div>

@@ -11,63 +11,47 @@ import {
    * @returns {Promise<Object>} - Processing results including processed text
    */
   export const processResponse = async (response, userData, navigate) => {
-    // Extract any AI action from the response
     const action = processAIAction(response);
     
     if (!action) return { 
-      processedText: response, 
+      processedText: response.trim(), 
       pendingConfig: null,
       refreshProjects: false,
       refreshSimulation: false
     };
     
-    // Execute the action
     const actionResult = await executeAIAction(action, userData, navigate);
+    let cleanedResponse = response.replace(/```action\n[\s\S]*?\n```/g, '').trim();
     
-    // Remove the action code block from response
-    let cleanedResponse = response.replace(/```action\n[\s\S]*?\n```/g, '');
-    
-    // Tracking flags for refresh operations
-    let shouldRefreshProjects = false;
-    let shouldRefreshSimulation = false;
-    let pendingConfig = null;
-    let projectId = null;
-    
-    // Add confirmation message about the action
     if (actionResult.success) {
-      // If we have formatted results, include them
-      if (action.type === 'get_simulation_results' && actionResult.formattedResults) {
-        cleanedResponse += `\n\n${actionResult.formattedResults}`;
-      } else {
-        cleanedResponse += `\n\n${actionResult.message}`;
+      if (action.type === 'configure_simulation') {
+        // For configuration, don't navigate automatically
+        return {
+          processedText: cleanedResponse + `\n${actionResult.message}`,
+          pendingConfig: actionResult.config,
+          refreshProjects: false,
+          refreshSimulation: false,
+          shouldNavigate: false // New flag to control navigation
+        };
+      } else if (action.type === 'analyze_simulation') {
+        // For analysis, return just the analysis without additional context
+        return {
+          processedText: actionResult.message,
+          pendingConfig: null,
+          refreshProjects: false,
+          refreshSimulation: false
+        };
       }
       
-      // Handle pending node configurations
-      if (action.type === 'create_project' && actionResult.pendingConfig) {
-        pendingConfig = actionResult.pendingConfig;
-        projectId = actionResult.projectId;
-        
-        cleanedResponse += "\n\nI'll configure the nodes for this project once we're on the configuration page.";
-      }
-      
-      // Track which data needs refreshing
-      if (action.type === 'create_project' || action.type === 'create_and_configure') {
-        shouldRefreshProjects = true;
-        projectId = actionResult.projectId;
-      } else if (action.type === 'run_simulation') {
-        shouldRefreshSimulation = true;
-      }
-    } else {
-      // Add error message if action failed
-      cleanedResponse += `\n\nI'm sorry, I couldn't complete that action: ${actionResult.message}`;
+      // Handle other action types as before...
+      cleanedResponse += `\n${actionResult.message}`;
     }
     
     return {
-      processedText: cleanedResponse,
-      pendingConfig,
-      projectId,
-      refreshProjects: shouldRefreshProjects,
-      refreshSimulation: shouldRefreshSimulation
+      processedText: cleanedResponse.trim(),
+      pendingConfig: null,
+      refreshProjects: false,
+      refreshSimulation: false
     };
   };
   

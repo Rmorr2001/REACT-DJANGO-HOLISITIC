@@ -1,4 +1,5 @@
 import { addEdge, MarkerType } from 'reactflow';
+import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 
 export const defaultEdgeOptions = {
   type: 'smoothstep',
@@ -82,7 +83,7 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
     }
 
     const data = await nodesResponse.json();
-    console.log('Fetched node data:', data); // Debug log
+    console.log('Fetched node data:', data);
     
     if (!data.nodes || !Array.isArray(data.nodes)) {
       throw new Error('Invalid node data received from server');
@@ -91,7 +92,10 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
     const convertedNodes = data.nodes.map((node, index) => ({
       id: `node-${index}`,
       type: 'custom',
-      position: { x: 200 + index * 200, y: 200 },
+      position: { 
+        x: node.position_x || 200 + index * 200, 
+        y: node.position_y || 200 
+      },
       data: {
         name: node.node_name,
         serviceDist: node.service_distribution.toLowerCase(),
@@ -100,7 +104,16 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
         arrivalDist: node.arrival_distribution.toLowerCase(),
         arrivalRate: node.arrival_rate,
         incomingConnections: 0,
-        outgoingConnections: 0
+        outgoingConnections: 0,
+        style: node.style || {
+          backgroundColor: '#ffffff',
+          borderColor: '#e2e8f0',
+          borderWidth: 2,
+          borderStyle: 'solid',
+          borderRadius: 16,
+          icon: 'Store',
+          iconColor: '#2563eb'
+        }
       }
     }));
 
@@ -133,16 +146,19 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
   }
 };
 
-export const handleSave = async (projectId, nodes, edges, navigate) => {
+export const handleSave = async (projectId, nodes, edges, navigate, shouldNavigate = false) => {
   try {
-    console.log('Saving nodes:', nodes); // Debug log
-    console.log('Saving edges:', edges); // Debug log
+    console.group('Node Save Debug');
+    console.log('Raw nodes:', nodes);
+    console.log('Raw edges:', edges);
 
     const apiNodes = nodes.map(node => {
-      // Create routing probabilities array initialized with zeros
+      console.group(`Processing node: ${node.id}`);
+      console.log('Node position:', node.position);
+      console.log('Node style:', node.data.style);
+
       const routingProbabilities = new Array(nodes.length).fill(0);
 
-      // Fill in the actual probabilities from edges
       edges
         .filter(edge => edge.source === node.id)
         .forEach(edge => {
@@ -150,18 +166,26 @@ export const handleSave = async (projectId, nodes, edges, navigate) => {
           routingProbabilities[targetIndex] = parseFloat(edge.data.weight) || 0;
         });
 
-      return {
+      const nodeData = {
         node_name: node.data.name,
         service_distribution: node.data.serviceDist.charAt(0).toUpperCase() + node.data.serviceDist.slice(1),
         service_rate: parseFloat(node.data.serviceRate),
         number_of_servers: parseInt(node.data.numberOfServers),
         arrival_distribution: node.data.arrivalDist.charAt(0).toUpperCase() + node.data.arrivalDist.slice(1),
         arrival_rate: parseFloat(node.data.arrivalRate),
-        routing_probabilities: routingProbabilities
+        routing_probabilities: routingProbabilities,
+        position_x: node.position.x,
+        position_y: node.position.y,
+        style: node.data.style || {}
       };
+
+      console.log('Processed node data:', nodeData);
+      console.groupEnd();
+      return nodeData;
     });
 
-    console.log('Formatted API nodes:', apiNodes); // Debug log
+    console.log('Final API nodes:', apiNodes);
+    console.groupEnd();
 
     const response = await fetch(`/api/projects/${projectId}/nodes/`, {
       method: 'POST',
@@ -173,13 +197,15 @@ export const handleSave = async (projectId, nodes, edges, navigate) => {
     });
 
     const responseData = await response.json();
-    console.log('Server response:', responseData); // Debug log
+    console.log('Server response:', responseData);
 
     if (!response.ok) {
       throw new Error(responseData.error || 'Failed to save nodes');
     }
 
-    navigate(`/projects/${projectId}/simulate`);
+    if (shouldNavigate) {
+      navigate(`/projects/${projectId}/simulate`);
+    }
     return true;
   } catch (error) {
     console.error('Error saving nodes:', error);

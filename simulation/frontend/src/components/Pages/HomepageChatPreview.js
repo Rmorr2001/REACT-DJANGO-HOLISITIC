@@ -8,9 +8,10 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Send as SendIcon, AutoFixHigh as AIIcon } from '@mui/icons-material';
- import { useAIAssistant } from '../Gemini/AIAssistantContext.js';
+import { useAIAssistant } from '../Gemini/AIAssistantContext.js';
 import { getSystemPrompt } from '../Gemini/AIAssistantUtils.js';
 import { useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 
 const API_KEY = 'AIzaSyCoJEcBZOQZFj-xuwKg9prq5w4LBBSM3NM';
 
@@ -46,6 +47,20 @@ const HomepageChatPreview = () => {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [previewMessages]);
+
+  // Add this function at the top of the component
+  const processMessageContent = async (message) => {
+    if (message.content instanceof Promise) {
+      try {
+        const resolvedContent = await message.content;
+        return resolvedContent;
+      } catch (error) {
+        console.error('Error processing message content:', error);
+        return 'Error processing message';
+      }
+    }
+    return message.content;
+  };
 
   // Handle sending a message - using the main assistant's processing
   const handleSend = async () => {
@@ -98,8 +113,9 @@ ${userMessage}`
       const assistantMessage = data.candidates[0].content.parts[0].text;
       
       // Process the response using the main assistant's processResponse function
-      // This ensures any updates to action handling are automatically applied here
-      const processedMessage = processResponse(assistantMessage);
+      const processedMessage = await processMessageContent({
+        content: processResponse(assistantMessage)
+      });
 
       setPreviewMessages(prev => [...prev, {
         role: 'assistant',
@@ -198,8 +214,16 @@ ${userMessage}`
                   </Typography>
                 </Box>
               )}
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {message.content}
+              <Typography variant="body2" sx={{ 
+                '& p': { margin: '4px 0' },
+                '& strong': { fontWeight: 'bold' },
+                '& em': { fontStyle: 'italic' }
+              }}>
+                {typeof message.content === 'string' ? (
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                ) : (
+                  'Processing...'
+                )}
               </Typography>
             </Box>
           </Box>

@@ -13,25 +13,28 @@ import {
 } from 'recharts';
 
 const NodeCharts = ({ chartData }) => {
-  // Return null if no data
-  if (!chartData || !chartData.utilization) return null;
+  if (!chartData) return null;
+
+  const { utilization, waitTime, serviceTime, throughput } = chartData;
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Utilization Chart */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Node Utilization
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" component="h3">
+            Node Utilization
+          </Typography>
           <Tooltip title="Percentage of time servers at each node are busy">
             <IconButton size="small">
               <InfoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-        </Typography>
+        </Box>
         <Box sx={{ height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
-              data={chartData.utilization}
+              data={utilization}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
@@ -45,22 +48,24 @@ const NodeCharts = ({ chartData }) => {
       </Paper>
 
       {/* Wait & Service Times Chart */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Wait & Service Times
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" component="h3">
+            Wait & Service Times
+          </Typography>
           <Tooltip title="Average waiting and service times for each node (minutes)">
             <IconButton size="small">
               <InfoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-        </Typography>
+        </Box>
         <Box sx={{ height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
-              data={chartData.waitTime?.map((item, index) => ({
+              data={waitTime?.map((item, index) => ({
                 name: item.name,
                 waitTime: item.waitTime,
-                serviceTime: chartData.serviceTime[index]?.serviceTime || 0
+                serviceTime: serviceTime[index]?.serviceTime
               }))}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
@@ -77,19 +82,21 @@ const NodeCharts = ({ chartData }) => {
       </Paper>
 
       {/* Throughput Chart */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Node Throughput
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" component="h3">
+            Node Throughput
+          </Typography>
           <Tooltip title="Number of customers arriving and completed at each node">
             <IconButton size="small">
               <InfoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-        </Typography>
+        </Box>
         <Box sx={{ height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
-              data={chartData.throughput}
+              data={throughput}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
@@ -103,7 +110,7 @@ const NodeCharts = ({ chartData }) => {
           </ResponsiveContainer>
         </Box>
       </Paper>
-    </>
+    </Box>
   );
 };
 

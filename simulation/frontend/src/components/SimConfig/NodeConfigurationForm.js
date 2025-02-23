@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   TextField,
@@ -10,8 +10,15 @@ import {
   Typography,
   IconButton,
   MenuItem,
+  InputLabel,
+  Select,
+  Collapse,
+  Button,
+  Switch,
 } from '@mui/material';
-import { Delete as DeleteIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, ExpandMore, ExpandLess } from '@mui/icons-material';
+import { ChromePicker } from 'react-color';
+import * as MUIIcons from '@mui/icons-material';
 
 export const ConfigurationForm = ({
   formData,
@@ -23,7 +30,37 @@ export const ConfigurationForm = ({
   handleEdgeWeightChange,
   removeEdge,
   onAddConnection,
+  setNodes,
 }) => {
+  const [showStyleOptions, setShowStyleOptions] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(null); // 'background', 'border', 'icon', or null
+
+  const handleStyleChange = (property, value) => {
+    // Update form data
+    handleFormChange(`style.${property}`, value);
+    
+    // Update node directly
+    const updatedNode = {
+      ...selectedNode,
+      data: {
+        ...selectedNode.data,
+        style: {
+          ...selectedNode.data.style,
+          [property]: value
+        }
+      }
+    };
+    
+    const updatedNodes = nodes.map(node => 
+      node.id === selectedNode.id ? updatedNode : node
+    );
+    setNodes(updatedNodes);
+  };
+
+  const handleColorChange = (color, type) => {
+    handleStyleChange(type, color.hex);
+  };
+
   if (!formData) return null;
   
   return (
@@ -33,6 +70,8 @@ export const ConfigurationForm = ({
         value={formData.name}
         onChange={(e) => handleFormChange('name', e.target.value)}
         fullWidth
+        size="small"
+        variant="outlined"
       />
 
       <TextField
@@ -42,6 +81,8 @@ export const ConfigurationForm = ({
         onChange={(e) => handleFormChange('numberOfServers', parseInt(e.target.value))}
         inputProps={{ min: 1 }}
         fullWidth
+        size="small"
+        variant="outlined"
       />
 
       <FormControl>
@@ -68,6 +109,8 @@ export const ConfigurationForm = ({
           value={formData.arrivalRate}
           onChange={(e) => handleFormChange('arrivalRate', parseFloat(e.target.value))}
           inputProps={{ min: 0, step: 0.1 }}
+          size="small"
+          variant="outlined"
           sx={{ mt: 1 }}
         />
       </FormControl>
@@ -96,9 +139,92 @@ export const ConfigurationForm = ({
           value={formData.serviceRate}
           onChange={(e) => handleFormChange('serviceRate', parseFloat(e.target.value))}
           inputProps={{ min: 0.1, step: 0.1 }}
+          size="small"
+          variant="outlined"
           sx={{ mt: 1 }}
         />
       </FormControl>
+
+      <Button
+        onClick={() => setShowStyleOptions(!showStyleOptions)}
+        endIcon={showStyleOptions ? <ExpandLess /> : <ExpandMore />}
+        variant="outlined"
+        fullWidth
+        sx={{ mt: 2 }}
+      >
+        Style Options
+      </Button>
+
+      <Collapse in={showStyleOptions}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Icon</InputLabel>
+            <Select
+              value={formData.style?.icon || ''}
+              onChange={(e) => handleStyleChange('icon', e.target.value)}
+              label="Icon"
+            >
+              <MenuItem value="">None</MenuItem>
+              {[
+                { value: 'Store', label: 'Store' },
+                { value: 'ShoppingCart', label: 'Shopping Cart' },
+                { value: 'LocalShipping', label: 'Shipping' },
+                { value: 'Person', label: 'Person' },
+                { value: 'Group', label: 'Group' },
+                { value: 'Restaurant', label: 'Restaurant' },
+                { value: 'LocalCafe', label: 'Cafe' },
+                { value: 'LocalHospital', label: 'Hospital' },
+                { value: 'School', label: 'School' },
+                { value: 'AccountBalance', label: 'Bank' },
+              ].map((item) => {
+                const IconComponent = MUIIcons[item.value];
+                return (
+                  <MenuItem key={item.value} value={item.value}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconComponent sx={{ color: formData.style?.iconColor }} />
+                      {item.label}
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>Color Scheme</Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Blue', bg: '#f0f7ff', border: '#bfdbfe', icon: '#2563eb' },
+              { label: 'Green', bg: '#f0fdf4', border: '#bbf7d0', icon: '#16a34a' },
+              { label: 'Purple', bg: '#f5f3ff', border: '#ddd6fe', icon: '#7c3aed' },
+              { label: 'Pink', bg: '#fdf2f8', border: '#fbcfe8', icon: '#db2777' },
+              { label: 'Orange', bg: '#fff7ed', border: '#fed7aa', icon: '#ea580c' },
+              { label: 'Gray', bg: '#f8fafc', border: '#e2e8f0', icon: '#475569' },
+            ].map((preset) => (
+              <Button
+                key={preset.label}
+                onClick={() => {
+                  handleStyleChange('backgroundColor', preset.bg);
+                  handleStyleChange('borderColor', preset.border);
+                  handleStyleChange('iconColor', preset.icon);
+                }}
+                sx={{
+                  minWidth: '80px',
+                  height: '32px',
+                  backgroundColor: preset.bg,
+                  border: `1px solid ${preset.border}`,
+                  color: preset.icon,
+                  '&:hover': {
+                    backgroundColor: preset.bg,
+                    opacity: 0.9,
+                  }
+                }}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </Box>
+        </Box>
+      </Collapse>
 
       <Box>
         <FormLabel>Add Connection</FormLabel>

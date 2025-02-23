@@ -103,24 +103,22 @@ export const executeAIAction = async (action, userData, navigate) => {
           
           try {
             // Process nodes to ensure proper data structure
-            const processedNodes = action.nodes.map((node, index) => {
-              // Ensure node has consistent structure for both API and UI
+            const processedNodes = (action.nodes || []).map(node => {
+              const nodeStyle = getNodeStyle(node.data?.name || node.name || 'New Node', node.data?.type || 'default');
               return {
-                id: node.id || `node-${index}`,
-                name: node.name || node.data?.name || `Node ${index + 1}`,
-                service_distribution: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
-                service_rate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
-                number_of_servers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
-                arrival_distribution: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
-                arrival_rate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
-                // Also include data field for React Flow compatibility
+                ...node,
                 data: {
-                  name: node.name || node.data?.name || `Node ${index + 1}`,
-                  serviceDist: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
-                  serviceRate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
-                  numberOfServers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
-                  arrivalDist: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
-                  arrivalRate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+                  ...node.data,
+                  name: node.data?.name || node.name || 'New Node',
+                  serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
+                  serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
+                  numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
+                  arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
+                  arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
+                  incomingConnections: 0,
+                  outgoingConnections: 0,
+                  connections: [],
+                  style: nodeStyle
                 }
               };
             });
@@ -185,24 +183,22 @@ export const executeAIAction = async (action, userData, navigate) => {
         }
         
         // Process nodes to ensure proper data structure
-        const processedNodes = action.nodes.map((node, index) => {
-          // Ensure node has consistent structure for both API and UI
+        const processedNodes = (action.nodes || []).map(node => {
+          const nodeStyle = getNodeStyle(node.data?.name || node.name || 'New Node', node.data?.type || 'default');
           return {
-            id: node.id || `node-${index}`,
-            name: node.name || node.data?.name || `Node ${index + 1}`,
-            service_distribution: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
-            service_rate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
-            number_of_servers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
-            arrival_distribution: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
-            arrival_rate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
-            // Also include data field for React Flow compatibility
+            ...node,
             data: {
-              name: node.name || node.data?.name || `Node ${index + 1}`,
-              serviceDist: (node.service_distribution || node.data?.serviceDist || 'deterministic').toLowerCase(),
-              serviceRate: parseFloat(node.service_rate || node.data?.serviceRate || 1),
-              numberOfServers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
-              arrivalDist: (node.arrival_distribution || node.data?.arrivalDist || 'deterministic').toLowerCase(),
-              arrivalRate: parseFloat(node.arrival_rate || node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+              ...node.data,
+              name: node.data?.name || node.name || 'New Node',
+              serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
+              serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
+              numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
+              arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
+              arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
+              incomingConnections: 0,
+              outgoingConnections: 0,
+              connections: [],
+              style: nodeStyle
             }
           };
         });
@@ -300,14 +296,29 @@ export const executeAIAction = async (action, userData, navigate) => {
             
             return { 
               success: true, 
-              message: 'Analyzed simulation results',
+              message: analysis,
               analysis,
-              formattedResults: analysis
+              formattedResults: analysis,
+              shouldSendFollowUp: true  // New flag to indicate a follow-up message
             };
           }
           return { success: false, message: 'No simulation results available to analyze' };
         }
         return { success: false, message: 'No project selected' };
+        
+      case 'configure_simulation':
+        const { projectId: configProjectId, nodes, edges } = action.data;
+        const success = await saveNodesViaAPI(configProjectId, nodes, edges);
+        
+        return {
+          success: true,
+          message: "Configuration has been saved. You can now either continue modifying the configuration or run the simulation.",
+          config: {
+            nodes,
+            edges,
+            projectId: configProjectId
+          }
+        };
         
       default:
         return { success: false, message: `Unknown action type: ${action.type}` };
@@ -489,5 +500,159 @@ export const getWelcomeMessage = (currentPage) => {
   return {
     title: "How can I help with your queuing network project?",
     description: "I can help you create a new project, configure network nodes, run simulations, or analyze results. What would you like to do?"
+  };
+};
+
+export const processResponse = async (response, userData, navigate) => {
+  const action = processAIAction(response);
+  
+  if (!action) return { 
+    processedText: response.trim(), 
+    pendingConfig: null,
+    refreshProjects: false,
+    refreshSimulation: false
+  };
+  
+  const actionResult = await executeAIAction(action, userData, navigate);
+  let cleanedResponse = response.replace(/```action\n[\s\S]*?\n```/g, '').trim();
+  
+  let shouldRefreshProjects = false;
+  let shouldRefreshSimulation = false;
+  let pendingConfig = null;
+  let projectId = null;
+  
+  if (actionResult.success) {
+    if (action.type === 'get_simulation_results' || action.type === 'analyze_simulation') {
+      // For simulation analysis, just use the formatted results directly
+      cleanedResponse = actionResult.formattedResults;
+    } else {
+      // For other actions, append the message more cleanly
+      cleanedResponse += `\n${actionResult.message}`;
+    }
+    
+    if (action.type === 'create_project' && actionResult.pendingConfig) {
+      pendingConfig = actionResult.pendingConfig;
+      projectId = actionResult.projectId;
+      cleanedResponse += "\nI'll configure the nodes for this project once we're on the configuration page.";
+    }
+    
+    if (action.type === 'create_project' || action.type === 'create_and_configure') {
+      shouldRefreshProjects = true;
+      projectId = actionResult.projectId;
+    } else if (action.type === 'run_simulation') {
+      shouldRefreshSimulation = true;
+    }
+  } else {
+    cleanedResponse += `\nI'm sorry, I couldn't complete that action: ${actionResult.message}`;
+  }
+  
+  return {
+    processedText: cleanedResponse.trim(),
+    pendingConfig,
+    projectId,
+    refreshProjects: shouldRefreshProjects,
+    refreshSimulation: shouldRefreshSimulation
+  };
+};
+
+const calculateNodePosition = (index, totalNodes) => {
+  const SPACING_X = 250;
+  const SPACING_Y = 200;
+  const NODES_PER_ROW = Math.ceil(Math.sqrt(totalNodes));
+  
+  // Calculate grid position
+  const row = Math.floor(index / NODES_PER_ROW);
+  const col = index % NODES_PER_ROW;
+  
+  // Add slight randomization for natural feel
+  const jitterX = (Math.random() - 0.5) * 30;
+  const jitterY = (Math.random() - 0.5) * 30;
+  
+  return {
+    x: 100 + (col * SPACING_X) + jitterX,
+    y: 100 + (row * SPACING_Y) + jitterY
+  };
+};
+
+const getNodeStyle = (nodeName, nodeType) => {
+  const nameLower = nodeName.toLowerCase();
+  
+  // Define style presets for different node types
+  const stylePresets = {
+    entrance: {
+      backgroundColor: '#f0f7ff',
+      borderColor: '#2563eb',
+      borderWidth: 2,
+      borderStyle: 'solid',
+      borderRadius: 12,
+      icon: 'Login',
+      iconColor: '#2563eb'
+    },
+    manufacturing: {
+      backgroundColor: '#fdf2f8',
+      borderColor: '#db2777',
+      borderWidth: 2,
+      borderStyle: 'solid',
+      borderRadius: 12,
+      icon: 'Precision',
+      iconColor: '#db2777'
+    },
+    packaging: {
+      backgroundColor: '#f0fdf4',
+      borderColor: '#16a34a',
+      borderWidth: 2,
+      borderStyle: 'solid',
+      borderRadius: 12,
+      icon: 'Inventory',
+      iconColor: '#16a34a'
+    },
+    shipping: {
+      backgroundColor: '#fff7ed',
+      borderColor: '#ea580c',
+      borderWidth: 2,
+      borderStyle: 'solid',
+      borderRadius: 12,
+      icon: 'LocalShipping',
+      iconColor: '#ea580c'
+    },
+    service: {
+      backgroundColor: '#f5f3ff',
+      borderColor: '#7c3aed',
+      borderWidth: 2,
+      borderStyle: 'solid',
+      borderRadius: 12,
+      icon: 'Support',
+      iconColor: '#7c3aed'
+    }
+  };
+
+  // Match node type based on name
+  if (nameLower.includes('entrance') || nameLower.includes('arrival') || nameLower.includes('input')) {
+    return stylePresets.entrance;
+  }
+  if (nameLower.includes('manufacturing') || nameLower.includes('assembly') || 
+      nameLower.includes('production') || nameLower.includes('sewing') || 
+      nameLower.includes('stuffing')) {
+    return stylePresets.manufacturing;
+  }
+  if (nameLower.includes('packaging') || nameLower.includes('packing')) {
+    return stylePresets.packaging;
+  }
+  if (nameLower.includes('shipping') || nameLower.includes('delivery')) {
+    return stylePresets.shipping;
+  }
+  if (nameLower.includes('service') || nameLower.includes('support')) {
+    return stylePresets.service;
+  }
+
+  // Default style
+  return {
+    backgroundColor: '#f8fafc',
+    borderColor: '#64748b',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderRadius: 12,
+    icon: 'Storage',
+    iconColor: '#64748b'
   };
 };

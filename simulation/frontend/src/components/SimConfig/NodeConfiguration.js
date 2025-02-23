@@ -20,6 +20,7 @@ import {
   Save as SaveIcon,
   AutoFixHigh as AIIcon,
   Refresh as RefreshIcon,
+  PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
 import { useAIAssistant } from '../Gemini/AIAssistantContext.js';
 
@@ -188,6 +189,9 @@ const NodeConfiguration = () => {
 
   const addNode = () => {
     const newNodeId = `node-${nodes.length}`;
+    const defaultIcons = ['Storage', 'Store', 'ShoppingCart', 'LocalShipping', 'Inventory'];
+    const randomIcon = defaultIcons[Math.floor(Math.random() * defaultIcons.length)];
+    
     const newNode = {
       id: newNodeId,
       type: 'custom',
@@ -201,10 +205,19 @@ const NodeConfiguration = () => {
         serviceRate: 1,
         numberOfServers: 1,
         arrivalDist: 'deterministic',
-        arrivalRate: nodes.length === 0 ? 1 : 0, // Only first node gets default arrival rate
+        arrivalRate: nodes.length === 0 ? 1 : 0,
         incomingConnections: 0,
         outgoingConnections: 0,
-        connections: []
+        connections: [],
+        style: {
+          backgroundColor: '#ffffff',
+          borderColor: '#e2e8f0',
+          borderWidth: 2,
+          borderStyle: 'solid',
+          borderRadius: 16,
+          icon: randomIcon,
+          iconColor: '#2563eb'
+        }
       }
     };
     
@@ -225,15 +238,32 @@ const NodeConfiguration = () => {
 
     try {
       setSavingStatus({ saving: true, success: false, error: null });
-      const success = await handleSave(projectId, nodes, edges, navigate);
+      const success = await handleSave(projectId, nodes, edges, navigate, false);
       
       if (success) {
         setSavingStatus({ saving: false, success: true, error: null });
-        // Clear success status after 3 seconds
         setTimeout(() => {
           setSavingStatus(prev => ({ ...prev, success: false }));
         }, 3000);
       } else {
+        setSavingStatus({ saving: false, success: false, error: 'Save failed' });
+      }
+    } catch (error) {
+      setSavingStatus({ saving: false, success: false, error: error.message || 'Save failed' });
+    }
+  };
+
+  const onSaveAndSimulate = async () => {
+    if (!projectId || projectId === 'undefined') {
+      setError('Invalid project ID');
+      return;
+    }
+
+    try {
+      setSavingStatus({ saving: true, success: false, error: null });
+      const success = await handleSave(projectId, nodes, edges, navigate, true);
+      
+      if (!success) {
         setSavingStatus({ saving: false, success: false, error: 'Save failed' });
       }
     } catch (error) {
@@ -336,35 +366,20 @@ const NodeConfiguration = () => {
           
           <Button
             variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-          >
-            Refresh
-          </Button>
-          
-          <Button
-            variant="outlined"
-            startIcon={<AIIcon />}
-            onClick={openAssistant}
-            color="secondary"
-          >
-            AI Assistant
-          </Button>
-          
-          <Button
-            variant="contained"
             startIcon={savingStatus.saving ? <CircularProgress size={20} /> : <SaveIcon />}
             onClick={onSaveConfiguration}
             disabled={nodes.length === 0 || savingStatus.saving}
           >
             {savingStatus.saving ? 'Saving...' : 'Save Configuration'}
           </Button>
-          
+
           <Button
-            variant="outlined"
-            onClick={() => navigate('/projects')}
+            variant="contained"
+            startIcon={savingStatus.saving ? <CircularProgress size={20} /> : <PlayArrowIcon />}
+            onClick={onSaveAndSimulate}
+            disabled={nodes.length === 0 || savingStatus.saving}
           >
-            Back to Projects
+            {savingStatus.saving ? 'Saving...' : 'Save & Run Simulation'}
           </Button>
         </Box>
       </Box>

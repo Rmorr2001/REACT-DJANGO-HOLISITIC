@@ -7,12 +7,14 @@ class NodeSerializer(serializers.ModelSerializer):
         child=serializers.FloatField(min_value=0, max_value=1),
         allow_empty=True
     )
-    # Add explicit project field
+    position_x = serializers.FloatField(required=False)
+    position_y = serializers.FloatField(required=False)
+    style = serializers.JSONField(required=False)
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
 
     class Meta:
         model = Node
-        fields = '__all__'  # Now includes explicit project field
+        fields = '__all__'
         read_only_fields = ['id']
 
     def validate(self, data):

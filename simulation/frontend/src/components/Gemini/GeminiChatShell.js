@@ -14,6 +14,7 @@ import {
   AutoFixHigh as AIIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown';
 
 const API_KEY = 'AIzaSyCoJEcBZOQZFj-xuwKg9prq5w4LBBSM3NM';
 
@@ -205,8 +206,12 @@ ${userMessage}`
                     position: 'relative'
                   }}
                 >
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {message.content}
+                  <Typography variant="body1" sx={{ 
+                    '& p': { margin: '4px 0' },
+                    '& strong': { fontWeight: 'bold' },
+                    '& em': { fontStyle: 'italic' }
+                  }}>
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
                   </Typography>
                   
                   {/* Processing indicator */}

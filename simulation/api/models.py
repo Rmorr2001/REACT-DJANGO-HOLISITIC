@@ -1,4 +1,3 @@
-
 from django.db import models
 from django.utils import timezone
 # Create your models here.
@@ -32,7 +31,7 @@ class Node(models.Model):
         Project,
         on_delete=models.CASCADE,
         related_name='nodes',
-        null=False  # Must be False to enforce relationship
+        null=False
     )
     node_name = models.CharField(max_length=100)
     number_of_servers = models.IntegerField(default=1)
@@ -49,9 +48,12 @@ class Node(models.Model):
         blank=True,
         null=True
     )
-    routing_probabilities = models.JSONField(
-        default=list
-    )
+    routing_probabilities = models.JSONField(default=list)
+    
+    # New fields for position and style
+    position_x = models.FloatField(default=100)
+    position_y = models.FloatField(default=100)
+    style = models.JSONField(default=dict)
 
     class Meta:
         unique_together = ['project', 'node_name']

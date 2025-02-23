@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.http import JsonResponse
 from .serializers import ProjectSerializer, NodeSerializer
 from .models import Project, Node
-from .simulation import run_simulation_function
+from .simulation import *
 import logging
 from django.utils import timezone
 from rest_framework.decorators import api_view
@@ -177,7 +177,10 @@ class ConfigureNodes(APIView):
                     'number_of_servers': node.number_of_servers,
                     'arrival_distribution': node.arrival_distribution,
                     'arrival_rate': node.arrival_rate,
-                    'routing_probabilities': node.routing_probabilities
+                    'routing_probabilities': node.routing_probabilities,
+                    'position_x': node.position_x,
+                    'position_y': node.position_y,
+                    'style': node.style
                 }
                 nodes_data.append(node_data)
             
@@ -205,7 +208,14 @@ class ConfigureNodes(APIView):
             project = get_object_or_404(Project, id=project_id)
             nodes_data = request.data.get('nodes', [])
             
-            logger.debug(f"Received nodes data for Project {project_id}: {nodes_data}")
+            # Debug logging
+            logger.debug("Received request data:")
+            logger.debug(f"Project ID: {project_id}")
+            for i, node in enumerate(nodes_data):
+                logger.debug(f"Node {i} data:")
+                logger.debug(f"  Position: x={node.get('position_x')}, y={node.get('position_y')}")
+                logger.debug(f"  Style: {node.get('style')}")
+                logger.debug(f"  Other data: {node}")
             
             # Clear existing nodes
             project.nodes.all().delete()
@@ -265,7 +275,6 @@ class ConfigureNodes(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RunSimulation(APIView):
-    """Run the simulation for a configured project"""
     def post(self, request, project_id):
         try:
             project = run_simulation_function(request, logger, project_id)
@@ -275,9 +284,11 @@ class RunSimulation(APIView):
                 'results': project.results
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.debug(f"Simulation error for Project ID: {project_id}, Error: {str(e)}")
+            logger.error(f"Simulation error for Project ID: {project_id}, Error: {str(e)}", 
+                        exc_info=True)  # Add exc_info=True here
             return Response({
-                'error': str(e)
+                'error': str(e),
+                'traceback': traceback.format_exc()  # Add this line
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class SimulationResults(APIView):

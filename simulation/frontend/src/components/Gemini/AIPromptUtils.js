@@ -136,7 +136,46 @@ export const getSystemPrompt = (currentPage, userData) => {
       basePrompt += `\n\nLatest simulation results available. You can analyze key metrics like utilization, waiting times, etc.`;
     }
     
-    return basePrompt;
+    const stylePrompt = `
+Node Styling Options:
+You can customize the appearance of nodes using the "style" property in node configurations. Example:
+
+\`\`\`action
+{
+  "type": "configure_nodes",
+  "nodes": [{
+    "id": "node-0",
+    "name": "Fancy Entry Point",
+    "data": {
+      // ... other node data ...
+      "style": {
+        "backgroundColor": "#f0f7ff",
+        "borderColor": "#2196f3",
+        "borderWidth": 3,
+        "borderStyle": "double",
+        "borderRadius": 12,
+        "gradient": true,
+        "gradientColors": ["#e3f2fd", "#bbdefb"],
+        "gradientDirection": "diagonal",
+        "glowEffect": true,
+        "glowColor": "#64b5f6",
+        "animation": "pulse",
+        "icon": "store",
+        "iconColor": "#1976d2"
+      }
+    }
+  }]
+}
+\`\`\`
+
+Style Properties:
+* Colors: Use hex codes or named colors
+* Border styles: solid, dashed, dotted, double
+* Animations: none, pulse, bounce, shake
+* Icons: Any Material-UI icon name
+* Special effects: gradients, shadows, glow effects`;
+    
+    return basePrompt + stylePrompt;
   };
   
   /**

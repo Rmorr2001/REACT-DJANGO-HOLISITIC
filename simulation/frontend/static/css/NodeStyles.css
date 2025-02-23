@@ -1,62 +1,91 @@
 .custom-node {
-  background: linear-gradient(to bottom right, #f8faff, #e6f0ff);
-  border: 2px solid #bfdbfe;
-  border-radius: 12px;
-  padding: 24px;
-  min-width: 250px;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 35px 20px 20px;
+  min-width: 280px;
   position: relative;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(148, 163, 184, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 15px;
 }
 
 .custom-node:hover {
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(148, 163, 184, 0.15);
 }
 
 .node-title {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 600;
-  color: #1e40af;
+  color: inherit;
   text-align: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #bfdbfe;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  padding-top: 40px;
+}
+
+.node-icon {
+  font-size: 2.2rem !important;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.node-icon:hover {
+  transform: translateX(-50%) scale(1.1);
 }
 
 .servers-container {
   display: flex;
   justify-content: center;
-  gap: 4px;
-  margin-bottom: 12px;
-  min-height: 20px;
+  gap: 8px;
+  margin: 16px 0;
+  min-height: 24px;
 }
 
 .server-dot {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background-color: #3b82f6;
-  animation: pulse 2s infinite;
+  background-color: currentColor;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .metrics-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 16px;
 }
 
 .metric-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: rgba(239, 246, 255, 0.6);
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
 }
 
 .metric-label {
-  color: #1e40af;
+  color: #64748b;
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .metric-value {
@@ -66,71 +95,41 @@
 }
 
 .metric-number {
-  font-family: monospace;
-  color: #1e3a8a;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  color: inherit;
+  font-weight: 600;
 }
 
 .metric-dist {
   font-size: 0.8rem;
-  color: #3b82f6;
+  color: inherit;
+  font-weight: 500;
+  text-transform: capitalize;
 }
 
 /* Handle styling */
 .custom-node .react-flow__handle {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background-color: #60a5fa;
-  border: 2px solid #3b82f6;
-  opacity: 0;  /* Hide by default */
-  transition: opacity 0.2s;
-}
-
-/* Only show handles when actually dragging a connection */
-.react-flow__handle.connectable {
+  background-color: currentColor;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
   opacity: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .react-flow__handle.connectable:hover,
 .react-flow__handle.connecting {
   opacity: 1;
-}
-
-/* Handle positions */
-.custom-node .react-flow__handle-top {
-  top: -6px;
-}
-
-.custom-node .react-flow__handle-bottom {
-  bottom: -6px;
-}
-
-.custom-node .react-flow__handle-left {
-  left: -6px;
-}
-
-/* Remove the extra dot from flow arrows */
-.flow-arrow {
-  display: none;
-}
-
-/* Animation for server dots */
-@keyframes pulse {
-  0% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.6;
-  }
+  transform: scale(1.2);
 }
 
 /* Edge styling */
 .react-flow__edge-path {
-  stroke: #60a5fa;
+  stroke: currentColor;
   stroke-width: 2;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1));
 }
 
 .react-flow__edge.animated path {
@@ -138,9 +137,39 @@
   animation: dashdraw 1s linear infinite;
 }
 
-@keyframes dashdraw {
-  from {
-    stroke-dashoffset: 10;
-  }
+/* Animation for server dots */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.6; }
 }
 
+/* Add these new animation classes */
+.animate-pulse {
+  animation: nodePulse 2s infinite;
+}
+
+.animate-bounce {
+  animation: nodeBounce 1s infinite;
+}
+
+.animate-shake {
+  animation: nodeShake 0.5s infinite;
+}
+
+@keyframes nodePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+
+@keyframes nodeBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes nodeShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}

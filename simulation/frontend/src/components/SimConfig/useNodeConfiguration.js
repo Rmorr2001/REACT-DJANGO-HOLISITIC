@@ -5,8 +5,26 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Box,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Switch,
+  FormControlLabel,
+  Collapse
 } from '@mui/material';
 import ConfigurationForm from './NodeConfigurationForm.js';
+import {
+  ExpandLess,
+  ExpandMore,
+  Store,
+  Person,
+  ShoppingCart,
+  LocalShipping,
+  Inventory
+} from '@mui/icons-material';
 
 const NodeConfigurationDialog = ({ 
   open, 
@@ -19,54 +37,88 @@ const NodeConfigurationDialog = ({
 }) => {
   const [formData, setFormData] = useState(null);
   const [edgeWeights, setEdgeWeights] = useState({});
+  const [showStyleOptions, setShowStyleOptions] = useState(false);
 
   useEffect(() => {
     if (selectedNode) {
-      setFormData({ ...selectedNode.data });
+      setFormData({
+        name: selectedNode.data.name,
+        serviceDist: selectedNode.data.serviceDist,
+        serviceRate: selectedNode.data.serviceRate,
+        numberOfServers: selectedNode.data.numberOfServers,
+        arrivalDist: selectedNode.data.arrivalDist,
+        arrivalRate: selectedNode.data.arrivalRate,
+        style: selectedNode.data.style || {}
+      });
       
       const nodeEdges = edges.filter(edge => edge.source === selectedNode.id);
       const weights = {};
       nodeEdges.forEach(edge => {
-        weights[edge.id] = edge.data.weight;
+        weights[edge.id] = edge.data?.weight || 0.5;
       });
       setEdgeWeights(weights);
     }
   }, [selectedNode, edges]);
 
-  const handleDialogClose = (save = false) => {
-    if (save && selectedNode && formData) {
-      setNodes(nodes => nodes.map(node => {
-        if (node.id === selectedNode.id) {
-          return {
-            ...node,
-            data: { ...formData }
-          };
-        }
-        return node;
-      }));
+  const handleDialogClose = (save) => {
+    if (save && formData) {
+      setNodes(prevNodes => 
+        prevNodes.map(node => {
+          if (node.id === selectedNode.id) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                name: formData.name,
+                serviceDist: formData.serviceDist,
+                serviceRate: formData.serviceRate,
+                numberOfServers: formData.numberOfServers,
+                arrivalDist: formData.arrivalDist,
+                arrivalRate: formData.arrivalRate,
+                style: formData.style,
+                incomingConnections: node.data.incomingConnections,
+                outgoingConnections: node.data.outgoingConnections,
+                connections: node.data.connections
+              }
+            };
+          }
+          return node;
+        })
+      );
 
-      setEdges(edges => edges.map(edge => {
-        if (edge.source === selectedNode.id && edgeWeights[edge.id] !== undefined) {
-          return {
-            ...edge,
-            data: { ...edge.data, weight: edgeWeights[edge.id] },
-            label: edgeWeights[edge.id].toFixed(2)
-          };
-        }
-        return edge;
-      }));
+      setEdges(prevEdges =>
+        prevEdges.map(edge => {
+          if (edgeWeights[edge.id] !== undefined) {
+            return {
+              ...edge,
+              data: { weight: edgeWeights[edge.id] },
+              label: edgeWeights[edge.id].toFixed(2)
+            };
+          }
+          return edge;
+        })
+      );
     }
-
     onClose();
-    setFormData(null);
-    setEdgeWeights({});
   };
 
   const handleFormChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      if (field.startsWith('style.')) {
+        const styleField = field.split('.')[1];
+        return {
+          ...prev,
+          style: {
+            ...prev.style,
+            [styleField]: value
+          }
+        };
+      }
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
   };
 
   const handleEdgeWeightChange = (edgeId, newWeight) => {
@@ -147,6 +199,7 @@ const NodeConfigurationDialog = ({
             handleFormChange={handleFormChange}
             selectedNode={selectedNode}
             nodes={nodes}
+            setNodes={setNodes}
             edges={edges}
             edgeWeights={edgeWeights}
             handleEdgeWeightChange={handleEdgeWeightChange}
