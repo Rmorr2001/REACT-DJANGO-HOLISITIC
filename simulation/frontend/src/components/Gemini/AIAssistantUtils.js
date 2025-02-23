@@ -192,11 +192,33 @@ export const executeAIAction = async (action, userData, navigate) => {
         
       case 'analyze_simulation':
         if (userData.currentProject?.id) {
-          const results = await getSimulationResultsViaAPI(userData.currentProject.id);
-          if (results) {
-            const analysis = getAIAnalysisForSimulation(results);
+          try {
+            // First check if we need to run the simulation
+            let results = await getSimulationResultsViaAPI(userData.currentProject.id);
             
-            // Navigate to results page if requested
+            if (!results) {
+              // No results, try running the simulation first
+              console.log('No results found, running simulation...');
+              results = await runSimulationViaAPI(userData.currentProject.id);
+            }
+
+            if (!results) {
+              return { 
+                success: false, 
+                message: 'Unable to get simulation results. Please ensure the simulation is configured correctly.' 
+              };
+            }
+
+            // Now analyze the results
+            const analysis = await getAIAnalysisForSimulation(results);
+            
+            if (!analysis) {
+              return { 
+                success: false, 
+                message: 'Unable to analyze simulation results.' 
+              };
+            }
+
             if (action.navigate_to_results && navigate) {
               navigate(`/projects/${userData.currentProject.id}/results`);
             }
@@ -206,10 +228,15 @@ export const executeAIAction = async (action, userData, navigate) => {
               message: analysis,
               analysis,
               formattedResults: analysis,
-              shouldSendFollowUp: true  // New flag to indicate a follow-up message
+              shouldSendFollowUp: true
+            };
+          } catch (error) {
+            console.error('Analysis error:', error);
+            return { 
+              success: false, 
+              message: `Error analyzing simulation: ${error.message}` 
             };
           }
-          return { success: false, message: 'No simulation results available to analyze' };
         }
         return { success: false, message: 'No project selected' };
         
@@ -459,45 +486,4 @@ export const processResponse = async (response, userData, navigate) => {
     refreshProjects: shouldRefreshProjects,
     refreshSimulation: shouldRefreshSimulation
   };
-};
-
-export const formatNodesForAPI = (nodes, edges) => {
-  console.log('Formatting nodes for API...');
-
-  const nodeIndices = {};
-  nodes.forEach((node, index) => {
-    const id = node.id || `node-${index}`;
-    nodeIndices[id] = index;
-  });
-
-  const apiNodes = nodes.map((node, index) => {
-    const position = calculateNodePosition(index, nodes.length);
-    const routingProbabilities = new Array(nodes.length).fill(0);
-
-    edges
-      .filter(edge => edge.source === node.id)
-      .forEach(edge => {
-        const targetIndex = nodeIndices[edge.target];
-        if (targetIndex !== undefined) {
-          routingProbabilities[targetIndex] = parseFloat(edge.data?.probability || 0);
-        }
-      });
-
-    return {
-      node_name: node.data.name,
-      service_distribution: node.data.serviceDist.toLowerCase(), // Ensure it's lowercase
-      service_rate: parseFloat(node.data.serviceRate),
-      number_of_servers: parseInt(node.data.numberOfServers),
-      arrival_distribution: node.data.arrivalDist.toLowerCase(), // Ensure it's lowercase
-      arrival_rate: parseFloat(node.data.arrivalRate),
-      routing_probabilities: routingProbabilities,
-      position_x: position.x,
-      position_y: position.y,
-      style: node.data.style || getNodeStyle(node.data.name)
-    };
-  });
-
-  console.log('Processed nodes for API:', apiNodes);
-
-  return apiNodes;
 };

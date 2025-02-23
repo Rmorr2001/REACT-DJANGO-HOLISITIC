@@ -158,17 +158,12 @@ export const handleSimulationResultUpdate = (results, setMessages) => {
   
   const analysis = getAIAnalysisForSimulation(results);
   
+  // Add the analysis directly as an assistant message
   setMessages(prev => {
     const newMessages = [...prev];
-    // First message: Raw analysis
     newMessages.push({
       role: 'assistant',
       content: analysis
-    });
-    // Second message: Explanation prompt
-    newMessages.push({
-      role: 'assistant',
-      content: "I've provided the analysis above. Would you like me to explain any specific aspect in more detail, or would you like recommendations for improving the network's performance?"
     });
     return newMessages;
   });

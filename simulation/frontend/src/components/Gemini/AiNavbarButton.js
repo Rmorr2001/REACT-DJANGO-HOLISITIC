@@ -1,6 +1,6 @@
 // Complete AINavbarButton.js
 import React from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import { Button, Tooltip } from '@mui/material';
 import { AutoFixHigh as AIIcon } from '@mui/icons-material';
 import { useAIAssistant } from './AIAssistantContext.js';
 
@@ -25,25 +25,22 @@ const AINavbarButton = () => {
   // Use white color to contrast with your dark navbar (#041E6A)
   return (
     <Tooltip title="AI Assistant" placement="bottom">
-      <IconButton
-        aria-label="AI Assistant"
+      <Button
+        variant="contained"
         onClick={openAssistant}
         sx={{
-          color: 'white', // Change to white for visibility on dark navbar
-          padding: '8px',
+          backgroundColor: '#0A2B6A', // Lighter shade than the navbar
+          color: 'white',
+          padding: '8px 16px',
           margin: '0 4px',
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: '#0B3A8C', // Slightly lighter on hover
           }
         }}
+        startIcon={<AIIcon />}
       >
-        <AIIcon 
-          sx={{
-            fontSize: 24,
-            display: 'block'
-          }}
-        />
-      </IconButton>
+        Talk to Me
+      </Button>
     </Tooltip>
   );
 };

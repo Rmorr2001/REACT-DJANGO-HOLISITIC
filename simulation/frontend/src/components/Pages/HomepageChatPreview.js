@@ -148,6 +148,12 @@ ${userMessage}`
     }
   };
 
+  // Add this to your existing styles in the component
+  const chatBoxStyles = {
+    fontFamily: '"Your Desired Font", sans-serif', // Replace with your desired font
+    // Other styles...
+  };
+
   return (
     <Paper 
       elevation={3} 
@@ -156,7 +162,8 @@ ${userMessage}`
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 2,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        ...chatBoxStyles // Apply the font styles here
       }}
     >
       {/* Header */}

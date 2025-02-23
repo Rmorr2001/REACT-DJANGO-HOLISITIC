@@ -47,29 +47,6 @@ export const onConnect = (params, nodes, edges, setEdges, setNodes, updateNodeCo
   }
 };
 
-export const updateNodeConnections = (nodes, edges) => {
-  return nodes.map(node => {
-    const incomingConnections = edges.filter(edge => edge.target === node.id).length;
-    const outgoingConnections = edges.filter(edge => edge.source === node.id).length;
-    const connections = edges
-      .filter(edge => edge.source === node.id)
-      .map(edge => ({
-        target: edge.target,
-        weight: edge.data.weight
-      }));
-    
-    return {
-      ...node,
-      data: {
-        ...node.data,
-        incomingConnections,
-        outgoingConnections,
-        connections
-      }
-    };
-  });
-};
-
 export const fetchProjectData = async (projectId, setEdges, setNodes, updateNodeConnections) => {
   try {
     const response = await fetch(`/api/projects/${projectId}/nodes/`, {
