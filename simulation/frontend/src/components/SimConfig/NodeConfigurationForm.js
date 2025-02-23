@@ -93,12 +93,12 @@ export const ConfigurationForm = ({
           row
         >
           <FormControlLabel
-            value="deterministic"
+            value="Deterministic"
             control={<Radio />}
             label="Deterministic"
           />
           <FormControlLabel
-            value="exponential"
+            value="Exponential"
             control={<Radio />}
             label="Exponential"
           />
@@ -123,12 +123,12 @@ export const ConfigurationForm = ({
           row
         >
           <FormControlLabel
-            value="deterministic"
+            value="Deterministic"
             control={<Radio />}
             label="Deterministic"
           />
           <FormControlLabel
-            value="exponential"
+            value="Exponential"
             control={<Radio />}
             label="Exponential"
           />

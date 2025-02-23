@@ -162,3 +162,25 @@ export const updateNodeConnections = (nodes, edges) => {
 };
 
 export const capitalizeFirst = str => str.charAt(0).toUpperCase() + str.slice(1);
+
+export const calculateOptimalPosition = (index, totalNodes) => {
+  // Base spacing values
+  const HORIZONTAL_SPACING = 400;  // Increased from 300
+  const VERTICAL_SPACING = 300;    // Increased from 200
+  const NODES_PER_ROW = 3;        // Keep 3 nodes per row
+  
+  // Calculate row and column
+  const row = Math.floor(index / NODES_PER_ROW);
+  const col = index % NODES_PER_ROW;
+  
+  // Add slight randomization to prevent perfect grid alignment
+  const randomOffset = {
+    x: (Math.random() - 0.5) * 50,  // Increased from 40
+    y: (Math.random() - 0.5) * 50   // Increased from 40
+  };
+  
+  return {
+    x: 150 + (col * HORIZONTAL_SPACING) + randomOffset.x,
+    y: 150 + (row * VERTICAL_SPACING) + randomOffset.y
+  };
+};

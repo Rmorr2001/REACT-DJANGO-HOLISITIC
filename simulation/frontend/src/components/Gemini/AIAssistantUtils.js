@@ -1,3 +1,4 @@
+import { getNodeStyle, calculateNodePosition } from './SharedUtils.js';
 import { 
   createProjectViaAPI, 
   saveNodesViaAPI, 
@@ -7,6 +8,7 @@ import {
 } from './AISimulationUtils.js';
 
 import { getAIAnalysisForSimulation } from './SimulationAssistantUtils.js';
+import { calculateOptimalPosition } from '../SimConfig/CustomNode.js';
 
 /**
  * Parses and processes AI action commands from response strings
@@ -61,27 +63,50 @@ export const executeAIAction = async (action, userData, navigate) => {
         return { success: false, message: 'Invalid navigation path' };
         
       case 'create_project':
-        if (action.name) {
-          const projectId = await createProjectViaAPI(action.name, action.description || '');
-          if (projectId) {
-            // If there's a follow-up node configuration, store it
-            const pendingConfig = action.configure_nodes ? {
-              nodes: action.configure_nodes.nodes || [],
-              edges: action.configure_nodes.edges || []
-            } : null;
-            
-            return { 
-              success: true, 
-              message: `Created project "${action.name}" with ID ${projectId}`,
-              projectId,
-              pendingConfig  // Pass any pending configuration
-            };
+        if (action.project && action.project.name && action.nodes) {
+          // Create project first
+          const projectId = await createProjectViaAPI(
+            action.project.name, 
+            action.project.description || ''
+          );
+
+          if (!projectId) {
+            throw new Error('No project ID received');
           }
+
+          // Save nodes to API before navigation
+          const processedNodes = action.nodes.map((node, index) => ({
+            id: `node-${index}`,
+            type: 'custom',
+            position: node.position || calculateNodePosition(index, action.nodes.length),
+            data: {
+              name: node.data?.name || `Node ${index + 1}`,
+              serviceDist: node.data?.serviceDist || 'Deterministic',
+              serviceRate: parseFloat(node.data?.serviceRate || 1),
+              numberOfServers: parseInt(node.data?.numberOfServers || 1),
+              arrivalDist: node.data?.arrivalDist || 'Exponential',
+              arrivalRate: parseFloat(node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+              style: node.data?.style || {}
+            }
+          }));
+
+          // Save to Django API
+          await saveNodesViaAPI(projectId, processedNodes, action.edges || []);
+
+          // Then navigate
+          if (navigate) {
+            navigate(`/projects/${projectId}/nodes`);
+          }
+
+          return {
+            success: true,
+            message: `Created project "${action.project.name}" with ID ${projectId}`,
+            projectId
+          };
         }
-        return { success: false, message: 'Failed to create project' };
+        return { success: false, message: 'Invalid project configuration' };
         
       case 'create_and_configure':
-        // Handle creating a project and configuring nodes in one step
         if (action.project && action.project.name && action.nodes) {
           // First create the project
           const projectId = await createProjectViaAPI(
@@ -93,155 +118,37 @@ export const executeAIAction = async (action, userData, navigate) => {
             return { success: false, message: 'Failed to create project' };
           }
           
-          // Navigate to nodes page if needed
+          // Process nodes with positions
+          const processedNodes = action.nodes.map((node, index) => ({
+            id: `node-${index}`,
+            type: 'custom',
+            position: node.position || calculateNodePosition(index, action.nodes.length),
+            data: {
+              name: node.data?.name || node.name || `Node ${index + 1}`,
+              serviceDist: node.data?.serviceDist || 'Deterministic',
+              serviceRate: parseFloat(node.data?.serviceRate || 1),
+              numberOfServers: parseInt(node.data?.numberOfServers || 1),
+              arrivalDist: node.data?.arrivalDist || 'Exponential',
+              arrivalRate: parseFloat(node.data?.arrivalRate || (index === 0 ? 1 : 0)),
+              style: node.data?.style || {}
+            }
+          }));
+
+          // Save to Django API first
+          await saveNodesViaAPI(projectId, processedNodes, action.edges || []);
+          
+          // Then navigate
           if (navigate) {
             navigate(`/projects/${projectId}/nodes`);
           }
           
-          // Wait a bit for the page to load and project to be set
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          try {
-            // Process nodes to ensure proper data structure
-            const processedNodes = (action.nodes || []).map(node => {
-              const nodeStyle = getNodeStyle(node.data?.name || node.name || 'New Node', node.data?.type || 'default');
-              return {
-                ...node,
-                data: {
-                  ...node.data,
-                  name: node.data?.name || node.name || 'New Node',
-                  serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
-                  serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
-                  numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
-                  arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
-                  arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
-                  incomingConnections: 0,
-                  outgoingConnections: 0,
-                  connections: [],
-                  style: nodeStyle
-                }
-              };
-            });
-            
-            // Process edges for consistent structure
-            const processedEdges = (action.edges || []).map(edge => {
-              return {
-                id: edge.id || `edge-${edge.source}-${edge.target}`,
-                source: edge.source,
-                target: edge.target,
-                weight: parseFloat(edge.weight || edge.data?.weight || 0.5),
-                // Also include data field for React Flow compatibility
-                data: { 
-                  weight: parseFloat(edge.weight || edge.data?.weight || 0.5) 
-                }
-              };
-            });
-            
-            // Try UI event with processed data
-            window.dispatchEvent(new CustomEvent('ai-configure-nodes', { 
-              detail: { 
-                nodes: processedNodes, 
-                edges: processedEdges 
-              }
-            }));
-            
-            // Configure the nodes via API
-            await saveNodesViaAPI(projectId, processedNodes, processedEdges);
-            
-            return {
-              success: true,
-              message: `Created project "${action.project.name}" with ID ${projectId} and configured nodes`,
-              projectId
-            };
-          } catch (error) {
-            console.error("Failed to configure nodes:", error);
-            return {
-              success: true,
-              message: `Created project "${action.project.name}" with ID ${projectId}, but failed to configure nodes: ${error.message}`,
-              projectId
-            };
-          }
-        }
-        return { success: false, message: 'Invalid project or node configuration' };
-        
-      case 'configure_nodes':
-        const projectId = action.project_id || userData.currentProject?.id;
-        
-        if (!projectId) {
-          return { success: false, message: 'No project selected or specified' };
-        }
-        
-        if (!action.nodes || !Array.isArray(action.nodes) || action.nodes.length === 0) {
-          return { success: false, message: 'Invalid node configuration' };
-        }
-        
-        // Navigate to nodes page if needed
-        if (navigate && userData.currentProject?.id !== projectId) {
-          navigate(`/projects/${projectId}/nodes`);
-          // Wait a bit for the page to load
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-        // Process nodes to ensure proper data structure
-        const processedNodes = (action.nodes || []).map(node => {
-          const nodeStyle = getNodeStyle(node.data?.name || node.name || 'New Node', node.data?.type || 'default');
           return {
-            ...node,
-            data: {
-              ...node.data,
-              name: node.data?.name || node.name || 'New Node',
-              serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
-              serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
-              numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
-              arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
-              arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
-              incomingConnections: 0,
-              outgoingConnections: 0,
-              connections: [],
-              style: nodeStyle
-            }
-          };
-        });
-        
-        // Process edges for consistent structure
-        const processedEdges = (action.edges || []).map(edge => {
-          return {
-            id: edge.id || `edge-${edge.source}-${edge.target}`,
-            source: edge.source,
-            target: edge.target,
-            weight: parseFloat(edge.weight || edge.data?.weight || 0.5),
-            // Also include data field for React Flow compatibility
-            data: { 
-              weight: parseFloat(edge.weight || edge.data?.weight || 0.5) 
-            }
-          };
-        });
-        
-        // First try UI event with processed data
-        console.log("Attempting UI-based configuration with processed data");
-        window.dispatchEvent(new CustomEvent('ai-configure-nodes', { 
-          detail: { 
-            nodes: processedNodes, 
-            edges: processedEdges 
-          }
-        }));
-        
-        // Then try direct API
-        try {
-          console.log("Attempting direct API configuration");
-          await saveNodesViaAPI(projectId, processedNodes, processedEdges);
-        } catch (error) {
-          console.error("Direct API configuration failed:", error);
-          return { 
-            success: false, 
-            message: `Failed to configure nodes: ${error.message}`
+            success: true,
+            message: `Created project "${action.project.name}" with ID ${projectId} and configured nodes`,
+            projectId
           };
         }
-        
-        return { 
-          success: true, 
-          message: 'Applied node configuration'
-        };
+        return { success: false, message: 'Invalid project configuration' };
         
       case 'run_simulation':
         if (userData.currentProject?.id) {
@@ -312,7 +219,7 @@ export const executeAIAction = async (action, userData, navigate) => {
         
         return {
           success: true,
-          message: "Configuration has been saved. You can now either continue modifying the configuration or run the simulation.",
+          message: "Configuration has been saved.",
           config: {
             nodes,
             edges,
@@ -324,12 +231,8 @@ export const executeAIAction = async (action, userData, navigate) => {
         return { success: false, message: `Unknown action type: ${action.type}` };
     }
   } catch (error) {
-    console.error('Error executing action:', error);
-    return { 
-      success: false, 
-      message: `Error: ${error.message}`,
-      error
-    };
+    console.error('Error executing AI action:', error);
+    return { success: false, message: error.message };
   }
 };
 
@@ -505,6 +408,7 @@ export const getWelcomeMessage = (currentPage) => {
 
 export const processResponse = async (response, userData, navigate) => {
   const action = processAIAction(response);
+  console.log('Parsed action:', action);
   
   if (!action) return { 
     processedText: response.trim(), 
@@ -514,6 +418,8 @@ export const processResponse = async (response, userData, navigate) => {
   };
   
   const actionResult = await executeAIAction(action, userData, navigate);
+  console.log('Action result:', actionResult);
+  
   let cleanedResponse = response.replace(/```action\n[\s\S]*?\n```/g, '').trim();
   
   let shouldRefreshProjects = false;
@@ -555,104 +461,43 @@ export const processResponse = async (response, userData, navigate) => {
   };
 };
 
-const calculateNodePosition = (index, totalNodes) => {
-  const SPACING_X = 250;
-  const SPACING_Y = 200;
-  const NODES_PER_ROW = Math.ceil(Math.sqrt(totalNodes));
-  
-  // Calculate grid position
-  const row = Math.floor(index / NODES_PER_ROW);
-  const col = index % NODES_PER_ROW;
-  
-  // Add slight randomization for natural feel
-  const jitterX = (Math.random() - 0.5) * 30;
-  const jitterY = (Math.random() - 0.5) * 30;
-  
-  return {
-    x: 100 + (col * SPACING_X) + jitterX,
-    y: 100 + (row * SPACING_Y) + jitterY
-  };
-};
+export const formatNodesForAPI = (nodes, edges) => {
+  console.log('Formatting nodes for API...');
 
-const getNodeStyle = (nodeName, nodeType) => {
-  const nameLower = nodeName.toLowerCase();
-  
-  // Define style presets for different node types
-  const stylePresets = {
-    entrance: {
-      backgroundColor: '#f0f7ff',
-      borderColor: '#2563eb',
-      borderWidth: 2,
-      borderStyle: 'solid',
-      borderRadius: 12,
-      icon: 'Login',
-      iconColor: '#2563eb'
-    },
-    manufacturing: {
-      backgroundColor: '#fdf2f8',
-      borderColor: '#db2777',
-      borderWidth: 2,
-      borderStyle: 'solid',
-      borderRadius: 12,
-      icon: 'Precision',
-      iconColor: '#db2777'
-    },
-    packaging: {
-      backgroundColor: '#f0fdf4',
-      borderColor: '#16a34a',
-      borderWidth: 2,
-      borderStyle: 'solid',
-      borderRadius: 12,
-      icon: 'Inventory',
-      iconColor: '#16a34a'
-    },
-    shipping: {
-      backgroundColor: '#fff7ed',
-      borderColor: '#ea580c',
-      borderWidth: 2,
-      borderStyle: 'solid',
-      borderRadius: 12,
-      icon: 'LocalShipping',
-      iconColor: '#ea580c'
-    },
-    service: {
-      backgroundColor: '#f5f3ff',
-      borderColor: '#7c3aed',
-      borderWidth: 2,
-      borderStyle: 'solid',
-      borderRadius: 12,
-      icon: 'Support',
-      iconColor: '#7c3aed'
-    }
-  };
+  const nodeIndices = {};
+  nodes.forEach((node, index) => {
+    const id = node.id || `node-${index}`;
+    nodeIndices[id] = index;
+  });
 
-  // Match node type based on name
-  if (nameLower.includes('entrance') || nameLower.includes('arrival') || nameLower.includes('input')) {
-    return stylePresets.entrance;
-  }
-  if (nameLower.includes('manufacturing') || nameLower.includes('assembly') || 
-      nameLower.includes('production') || nameLower.includes('sewing') || 
-      nameLower.includes('stuffing')) {
-    return stylePresets.manufacturing;
-  }
-  if (nameLower.includes('packaging') || nameLower.includes('packing')) {
-    return stylePresets.packaging;
-  }
-  if (nameLower.includes('shipping') || nameLower.includes('delivery')) {
-    return stylePresets.shipping;
-  }
-  if (nameLower.includes('service') || nameLower.includes('support')) {
-    return stylePresets.service;
-  }
+  const apiNodes = nodes.map((node, index) => {
+    const position = calculateNodePosition(index, nodes.length);
+    const routingProbabilities = new Array(nodes.length).fill(0);
 
-  // Default style
-  return {
-    backgroundColor: '#f8fafc',
-    borderColor: '#64748b',
-    borderWidth: 2,
-    borderStyle: 'solid',
-    borderRadius: 12,
-    icon: 'Storage',
-    iconColor: '#64748b'
-  };
+    edges
+      .filter(edge => edge.source === node.id)
+      .forEach(edge => {
+        const targetIndex = nodeIndices[edge.target];
+        if (targetIndex !== undefined) {
+          routingProbabilities[targetIndex] = parseFloat(edge.data?.probability || 0);
+        }
+      });
+
+    return {
+      node_name: node.data.name,
+      service_distribution: node.data.serviceDist.toLowerCase(), // Ensure it's lowercase
+      service_rate: parseFloat(node.data.serviceRate),
+      number_of_servers: parseInt(node.data.numberOfServers),
+      arrival_distribution: node.data.arrivalDist.toLowerCase(), // Ensure it's lowercase
+      arrival_rate: parseFloat(node.data.arrivalRate),
+      routing_probabilities: routingProbabilities,
+      position_x: position.x,
+      position_y: position.y,
+      style: node.data.style || getNodeStyle(node.data.name)
+    };
+  });
+
+  console.log('Processed nodes for API:', apiNodes);
+
+  return apiNodes;
 };

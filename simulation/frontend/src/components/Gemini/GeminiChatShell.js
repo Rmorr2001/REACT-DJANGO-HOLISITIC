@@ -206,13 +206,29 @@ ${userMessage}`
                     position: 'relative'
                   }}
                 >
-                  <Typography variant="body1" sx={{ 
-                    '& p': { margin: '4px 0' },
-                    '& strong': { fontWeight: 'bold' },
-                    '& em': { fontStyle: 'italic' }
+                  <Box sx={{ 
+                    flexGrow: 1, 
+                    overflowY: 'auto',
+                    fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", sans-serif',
+                    '& p': { 
+                      margin: '4px 0',
+                      lineHeight: 1.6,
+                      fontSize: '1rem'
+                    },
+                    '& pre': { 
+                      margin: '8px 0', 
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: '"Consolas", "Monaco", monospace',
+                      fontSize: '0.9rem'
+                    },
+                    '& code': { 
+                      backgroundColor: '#f5f5f5', 
+                      padding: '2px 4px', 
+                      borderRadius: 4 
+                    }
                   }}>
                     <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </Typography>
+                  </Box>
                   
                   {/* Processing indicator */}
                   {message.processing && (

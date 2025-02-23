@@ -28,10 +28,8 @@ body {
 
 .app-container {
   width: 100%;
-  margin: auto;
-  position: relative; /* Ensure it contains absolutely positioned elements */
-  overflow-y: auto; /* Allow vertical scrolling */
-  min-height: 100vh;
+  height: calc(100vh - 64px); /* Adjust this value based on your navbar height */
+  overflow-y: auto; /* Allow vertical scrolling if needed */
 }
 
 body, html {
@@ -39,4 +37,10 @@ body, html {
   padding: 0;
   height: 100%;
   overflow-y: auto; /* Allow vertical scrolling */
+}
+
+.MuiAppBar-root {
+  position: fixed; /* Keep the navbar fixed at the top */
+  width: 100%; /* Ensure it spans the full width */
+  z-index: 1100; /* Ensure it stays above other elements */
 }

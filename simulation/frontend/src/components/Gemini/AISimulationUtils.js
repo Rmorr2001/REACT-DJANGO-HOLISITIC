@@ -2,6 +2,8 @@
  * Utility functions for AI to interact with simulation APIs
  */
 
+import { getNodeStyle, calculateNodePosition } from './SharedUtils.js';
+
 /**
  * Creates a new project through the API
  * @param {string} name - Project name
@@ -64,8 +66,6 @@ export const createProjectViaAPI = async (name, description) => {
    */
   export const formatNodesForAPI = (nodes, edges) => {
     console.log('Formatting nodes for API...');
-    console.log('Input nodes:', nodes);
-    console.log('Input edges:', edges);
     
     // Create a mapping of node IDs to indices
     const nodeIndices = {};
@@ -75,62 +75,36 @@ export const createProjectViaAPI = async (name, description) => {
     });
     
     // Create routing probabilities arrays initialized with zeros
-    const apiNodes = nodes.map(node => {
-      // Create a routing probabilities array with zeros for each node
+    const apiNodes = nodes.map((node, index) => {
+      const position = calculateNodePosition(index, nodes.length);
+      
+      // Initialize routing probabilities array
       const routingProbabilities = new Array(nodes.length).fill(0);
       
-      // Get service and arrival distributions, ensuring they're valid
-      const serviceDistribution = normalizeDistribution(node.service_distribution || node.data?.serviceDist);
-      const arrivalDistribution = normalizeDistribution(node.arrival_distribution || node.data?.arrivalDist);
-      
+      // Fill in probabilities from edges
+      edges
+        .filter(edge => edge.source === node.id)
+        .forEach(edge => {
+          const targetIndex = nodeIndices[edge.target];
+          if (targetIndex !== undefined) {
+            routingProbabilities[targetIndex] = parseFloat(edge.data?.weight || 0);
+          }
+        });
+
       return {
-        node_name: node.name || node.data?.name || `Node ${nodeIndices[node.id]}`,
-        service_distribution: serviceDistribution,
-        service_rate: parseFloat(node.service_rate || node.data?.serviceRate || 1.0),
-        number_of_servers: parseInt(node.number_of_servers || node.data?.numberOfServers || 1),
-        arrival_distribution: arrivalDistribution,
-        arrival_rate: parseFloat(node.arrival_rate || node.data?.arrivalRate || 
-          (nodeIndices[node.id] === 0 ? 1.0 : 0.0)),
-        routing_probabilities: routingProbabilities
+        node_name: node.data.name,
+        service_distribution: normalizeDistribution(node.data.serviceDist),
+        service_rate: parseFloat(node.data.serviceRate),
+        number_of_servers: parseInt(node.data.numberOfServers),
+        arrival_distribution: normalizeDistribution(node.data.arrivalDist),
+        arrival_rate: parseFloat(node.data.arrivalRate),
+        routing_probabilities: routingProbabilities,
+        position_x: position.x,
+        position_y: position.y,
+        style: node.data.style || {}
       };
     });
-    
-    // Fill in the actual probabilities from edges
-    if (edges && edges.length > 0) {
-      edges.forEach(edge => {
-        const sourceId = edge.source;
-        const targetId = edge.target;
-        
-        // Skip invalid edges
-        if (!sourceId || !targetId) {
-          console.warn('Edge missing source or target', edge);
-          return;
-        }
-        
-        // Get indices from the mapping
-        const sourceIndex = nodeIndices[sourceId];
-        const targetIndex = nodeIndices[targetId];
-        
-        if (sourceIndex !== undefined && targetIndex !== undefined) {
-          // Extract weight from different possible formats
-          let weight = 0.5;
-          if (edge.weight !== undefined) {
-            weight = parseFloat(edge.weight);
-          } else if (edge.data && edge.data.weight !== undefined) {
-            weight = parseFloat(edge.data.weight);
-          }
-          
-          // Set the routing probability
-          apiNodes[sourceIndex].routing_probabilities[targetIndex] = weight;
-        } else {
-          console.warn('Could not find node indices for edge', {
-            edge, sourceIndex, targetIndex, nodeIndices
-          });
-        }
-      });
-    }
-    
-    console.log('Formatted API nodes:', apiNodes);
+
     return apiNodes;
   };
   

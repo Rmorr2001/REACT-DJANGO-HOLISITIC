@@ -214,7 +214,7 @@ ${userMessage}`
                   </Typography>
                 </Box>
               )}
-              <Typography variant="body2" sx={{ 
+              <Box sx={{ 
                 '& p': { margin: '4px 0' },
                 '& strong': { fontWeight: 'bold' },
                 '& em': { fontStyle: 'italic' }
@@ -224,7 +224,7 @@ ${userMessage}`
                 ) : (
                   'Processing...'
                 )}
-              </Typography>
+              </Box>
             </Box>
           </Box>
         ))}

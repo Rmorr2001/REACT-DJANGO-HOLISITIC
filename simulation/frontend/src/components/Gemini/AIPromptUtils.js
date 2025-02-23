@@ -79,38 +79,30 @@ export const getSystemPrompt = (currentPage, userData) => {
   {
     "type": "create_and_configure",
     "project": {
-      "name": "Grocery Store Simulation",
-      "description": "Multi-node simulation of customer flow in a grocery store"
+      "name": "Retail Store Flow",
+      "description": "Customer flow through a retail store"
     },
     "nodes": [
       {
         "id": "node-0",
         "name": "Store Entrance",
+        "position": { "x": 100, "y": 250 },
         "data": {
           "serviceDist": "exponential",
-          "serviceRate": 1.0,
+          "serviceRate": 2.0,
           "numberOfServers": 1,
           "arrivalDist": "exponential",
-          "arrivalRate": 2.0
+          "arrivalRate": 1.5,
+          "style": {
+            "backgroundColor": "#f0f7ff",
+            "borderColor": "#2563eb",
+            "borderWidth": 2,
+            "borderStyle": "solid",
+            "borderRadius": 12,
+            "icon": "Login",
+            "iconColor": "#2563eb"
+          }
         }
-      },
-      {
-        "id": "node-1",
-        "name": "Checkout",
-        "data": {
-          "serviceDist": "deterministic",
-          "serviceRate": 1.5,
-          "numberOfServers": 3,
-          "arrivalDist": "deterministic",
-          "arrivalRate": 0.0
-        }
-      }
-    ],
-    "edges": [
-      {
-        "source": "node-0",
-        "target": "node-1",
-        "data": { "weight": 1.0 }
       }
     ]
   }
@@ -136,46 +128,60 @@ export const getSystemPrompt = (currentPage, userData) => {
       basePrompt += `\n\nLatest simulation results available. You can analyze key metrics like utilization, waiting times, etc.`;
     }
     
-    const stylePrompt = `
-Node Styling Options:
-You can customize the appearance of nodes using the "style" property in node configurations. Example:
+    // Add styling and positioning information
+    const styleAndPositioningPrompt = `
+Node Styling and Positioning:
+When configuring nodes, you can specify their position and visual style. Each node can include "position" and "style" properties:
 
 \`\`\`action
 {
   "type": "configure_nodes",
   "nodes": [{
     "id": "node-0",
-    "name": "Fancy Entry Point",
+    "name": "Store Entrance",
+    "position": { "x": 100, "y": 100 },  // Position on canvas
     "data": {
-      // ... other node data ...
+      // ... regular node data ...
       "style": {
-        "backgroundColor": "#f0f7ff",
-        "borderColor": "#2196f3",
-        "borderWidth": 3,
-        "borderStyle": "double",
-        "borderRadius": 12,
-        "gradient": true,
-        "gradientColors": ["#e3f2fd", "#bbdefb"],
-        "gradientDirection": "diagonal",
-        "glowEffect": true,
-        "glowColor": "#64b5f6",
-        "animation": "pulse",
-        "icon": "store",
-        "iconColor": "#1976d2"
+        "backgroundColor": "#f0f7ff",    // Light blue background
+        "borderColor": "#2563eb",        // Blue border
+        "borderWidth": 2,
+        "borderStyle": "solid",          // solid, dashed, dotted, double
+        "borderRadius": 12,              // Rounded corners
+        "icon": "Store",                 // Material-UI icon name
+        "iconColor": "#2563eb"           // Icon color
       }
     }
   }]
 }
 \`\`\`
 
-Style Properties:
-* Colors: Use hex codes or named colors
-* Border styles: solid, dashed, dotted, double
-* Animations: none, pulse, bounce, shake
-* Icons: Any Material-UI icon name
-* Special effects: gradients, shadows, glow effects`;
+Available Material-UI icons for nodes:
+- Store, ShoppingCart, LocalShipping for retail/logistics
+- Support, Person, Groups for service/customer nodes
+- Settings, Build, Precision for manufacturing/processing
+- Inventory, Storage for warehousing
+- Login, Logout for entrance/exit points
+- And many more standard Material-UI icons
+
+Color suggestions:
+- Blue tones (#f0f7ff, #2563eb) for entrance/input nodes
+- Green tones (#f0fdf4, #16a34a) for processing/service nodes
+- Purple tones (#f5f3ff, #7c3aed) for decision/routing nodes
+- Orange tones (#fff7ed, #ea580c) for exit/output nodes
+- Red tones (#fef2f2, #dc2626) for critical/high-priority nodes
+
+When creating multiple nodes, consider spacing them in a logical flow:
+- Entry points typically start at the left (x: 100-200)
+- Processing nodes in the middle (x: 300-600)
+- Exit points on the right (x: 700+)
+- Use y-coordinates to create parallel paths (y: 100-500)
+- Add slight position variations to avoid perfect grid alignment`;
+
+    // Add the style prompt to the base prompt
+    basePrompt += styleAndPositioningPrompt;
     
-    return basePrompt + stylePrompt;
+    return basePrompt;
   };
   
   /**
@@ -210,3 +216,28 @@ Style Properties:
       description: "I can help you create a new project, configure network nodes, run simulations, or analyze results. What would you like to do?"
     };
   };
+
+export const calculateNodePosition = (index, totalNodes) => {
+  // Base spacing values
+  const HORIZONTAL_SPACING = 400;
+  const VERTICAL_SPACING = 300;
+  const NODES_PER_ROW = Math.ceil(Math.sqrt(totalNodes)); // More dynamic row calculation
+  
+  // Calculate row and column using square-root based layout
+  const row = Math.floor(index / NODES_PER_ROW);
+  const col = index % NODES_PER_ROW;
+  
+  // Add more significant randomization
+  const randomOffset = {
+    x: (Math.random() - 0.5) * 100, // Increased from 50
+    y: (Math.random() - 0.5) * 150  // Increased from 50
+  };
+  
+  // Add slight vertical offset for every other column to create zigzag
+  const zigzagOffset = col % 2 === 0 ? 0 : VERTICAL_SPACING / 3;
+  
+  return {
+    x: 150 + (col * HORIZONTAL_SPACING) + randomOffset.x,
+    y: 150 + (row * VERTICAL_SPACING) + randomOffset.y + zigzagOffset
+  };
+};

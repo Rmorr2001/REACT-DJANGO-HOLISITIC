@@ -72,60 +72,79 @@ export const updateNodeConnections = (nodes, edges) => {
 
 export const fetchProjectData = async (projectId, setEdges, setNodes, updateNodeConnections) => {
   try {
-    const projectResponse = await fetch(`/api/projects/${projectId}/`);
-    if (!projectResponse.ok) {
-      throw new Error(`Failed to fetch project: ${projectResponse.statusText}`);
-    }
-    
-    const nodesResponse = await fetch(`/api/projects/${projectId}/nodes/`);
-    if (!nodesResponse.ok) {
-      throw new Error(`Failed to fetch nodes: ${nodesResponse.statusText}`);
+    const response = await fetch(`/api/projects/${projectId}/nodes/`, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch nodes: ${response.statusText}`);
     }
 
-    const data = await nodesResponse.json();
+    const data = await response.json();
     console.log('Fetched node data:', data);
     
     if (!data.nodes || !Array.isArray(data.nodes)) {
-      throw new Error('Invalid node data received from server');
+      console.warn('No nodes found or invalid data structure');
+      setNodes([]);
+      setEdges([]);
+      return true;
     }
 
-    const convertedNodes = data.nodes.map((node, index) => ({
-      id: `node-${index}`,
-      type: 'custom',
-      position: { 
-        x: node.position_x || 200 + index * 200, 
-        y: node.position_y || 200 
-      },
-      data: {
-        name: node.node_name,
-        serviceDist: node.service_distribution.toLowerCase(),
-        serviceRate: node.service_rate,
-        numberOfServers: node.number_of_servers,
-        arrivalDist: node.arrival_distribution.toLowerCase(),
-        arrivalRate: node.arrival_rate,
-        incomingConnections: 0,
-        outgoingConnections: 0,
-        style: node.style || {
-          backgroundColor: '#ffffff',
-          borderColor: '#e2e8f0',
-          borderWidth: 2,
-          borderStyle: 'solid',
-          borderRadius: 16,
-          icon: 'Store',
-          iconColor: '#2563eb'
-        }
-      }
-    }));
+    // Ensure positions are properly initialized
+    const convertedNodes = data.nodes.map((node, index) => {
+      // Always calculate a default position
+      const defaultPosition = {
+        x: 100 + (index * 9),
+        y: 100 + (index * 4)
+      };
 
+      // Ensure position is always a valid object
+      const position = {
+        x: typeof node.position_x === 'number' ? node.position_x : defaultPosition.x,
+        y: typeof node.position_y === 'number' ? node.position_y : defaultPosition.y
+      };
+
+      return {
+        id: `node-${index}`,
+        type: 'custom',
+        position: { ...position }, // Create a new object to ensure reference is clean
+        data: {
+          name: node.node_name || `Node ${index + 1}`,
+          serviceDist: (node.service_distribution || 'Deterministic').toLowerCase(),
+          serviceRate: parseFloat(node.service_rate) || 1,
+          numberOfServers: parseInt(node.number_of_servers) || 1,
+          arrivalDist: (node.arrival_distribution || 'Exponential').toLowerCase(),
+          arrivalRate: parseFloat(node.arrival_rate) || (index === 0 ? 1 : 0),
+          incomingConnections: 0,
+          outgoingConnections: 0,
+          style: {
+            backgroundColor: '#ffffff',
+            borderColor: '#e2e8f0',
+            borderWidth: 2,
+            borderStyle: 'solid',
+            borderRadius: 16,
+            icon: 'Store',
+            iconColor: '#2563eb',
+            ...(node.style || {})
+          }
+        }
+      };
+    });
+
+    // Process edges after nodes
     const convertedEdges = [];
-    data.nodes.forEach((node, fromIndex) => {
-      if (node.routing_probabilities) {
-        node.routing_probabilities.forEach((probability, toIndex) => {
+    data.nodes.forEach((node, sourceIndex) => {
+      if (Array.isArray(node.routing_probabilities)) {
+        node.routing_probabilities.forEach((probability, targetIndex) => {
           if (probability > 0) {
             convertedEdges.push({
-              id: `edge-node-${fromIndex}-node-${toIndex}`,
-              source: `node-${fromIndex}`,
-              target: `node-${toIndex}`,
+              id: `edge-node-${sourceIndex}-node-${targetIndex}`,
+              source: `node-${sourceIndex}`,
+              target: `node-${targetIndex}`,
               type: 'smoothstep',
               animated: true,
               data: { weight: probability },
@@ -136,9 +155,11 @@ export const fetchProjectData = async (projectId, setEdges, setNodes, updateNode
       }
     });
 
-    setEdges(convertedEdges);
+    // Important: Set nodes first, then edges
     const nodesWithConnections = updateNodeConnections(convertedNodes, convertedEdges);
     setNodes(nodesWithConnections);
+    setEdges(convertedEdges);
+    
     return true;
   } catch (error) {
     console.error('Error fetching project data:', error);

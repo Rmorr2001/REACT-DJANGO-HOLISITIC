@@ -30,6 +30,8 @@ import '../../../static/css/NodeStyles.css';
 import NodeConfigurationDialog from './useNodeConfiguration.js';
 import { nodeTypes, updateNodeConnections } from './CustomNode.js';
 import { defaultEdgeOptions, onConnect, handleSave, fetchProjectData } from './NodeConfigurationUtils.js';
+import { calculateNodePosition } from '../Gemini/SharedUtils.js';
+import { calculateOptimalPosition } from '../SimConfig/CustomNode.js';
 
 const NodeConfiguration = () => {
   const { projectId } = useParams();
@@ -45,185 +47,136 @@ const NodeConfiguration = () => {
     success: false,
     error: null
   });
+  const [isProcessingAIConfig, setIsProcessingAIConfig] = useState(false);
   
-  // Global AI assistant integration
   const { openAssistant } = useAIAssistant();
-  
-  // Refs to track initialization and configuration status
   const initialized = useRef(false);
   const configApplied = useRef(false);
   const reactFlowInstance = useRef(null);
 
-  // Function to refresh node layout
   const refreshFlow = useCallback(() => {
-    if (reactFlowInstance.current && nodes.length > 0) {
-      setTimeout(() => {
-        reactFlowInstance.current.fitView({ padding: 0.2 });
-      }, 100);
+    if (reactFlowInstance.current) {
+      reactFlowInstance.current.fitView();
     }
-  }, [nodes]);
+  }, []);
 
-  useEffect(() => {
-    const loadProjectData = async () => {
-      // Validate projectId
-      if (!projectId || projectId === 'undefined') {
-        setError('Invalid project ID');
-        setIsLoading(false);
-        return;
-      }
+  const addNode = () => {
+    const defaultIcons = ['Storage', 'Store', 'ShoppingCart', 'LocalShipping', 'Inventory'];
+    const randomIcon = defaultIcons[Math.floor(Math.random() * defaultIcons.length)];
+    
+    setNodes(prevNodes => {
+      const index = prevNodes.length;
+      const position = calculateNodePosition(index, nodes.length);
+      
+      const newNode = {
+        id: `node-${index}`,
+        type: 'custom',
+        position: { ...position },
+        data: {
+          name: `Node ${index + 1}`,
+          serviceDist: 'deterministic',
+          serviceRate: 1,
+          numberOfServers: 1,
+          arrivalDist: 'deterministic',
+          arrivalRate: index === 0 ? 1 : 0,
+          incomingConnections: 0,
+          outgoingConnections: 0,
+          connections: [],
+          style: {
+            backgroundColor: '#ffffff',
+            borderColor: '#e2e8f0',
+            borderWidth: 2,
+            borderStyle: 'solid',
+            borderRadius: 16,
+            icon: randomIcon,
+            iconColor: '#2563eb'
+          }
+        }
+      };
+      
+      return [...prevNodes, newNode];
+    });
+    
+    setTimeout(refreshFlow, 100);
+  };
 
-      try {
-        console.log('Loading project with ID:', projectId); // Debug log
-        await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
-        initialized.current = true;
-      } catch (error) {
-        console.error('Error loading project:', error);
-        setError(error.message || 'Failed to load project data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProjectData();
-  }, [projectId]);
-
-  // Listen for AI configuration events with improved handling
+  // Modified handleAIConfiguration
   useEffect(() => {
     const handleAIConfiguration = (event) => {
       const { nodes: newNodes, edges: newEdges } = event.detail;
       
       if (newNodes && newNodes.length) {
         // Process and position nodes
-        const processedNodes = newNodes.map((node, index) => ({
-          id: node.id || `node-${index}`,
-          type: 'custom',
-          position: node.position || { 
-            x: 200 + (index % 3) * 250, 
-            y: 150 + Math.floor(index / 3) * 200 
-          },
-          data: {
-            name: node.data?.name || node.name || `Node ${index + 1}`,
-            serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
-            serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
-            numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
-            arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
-            arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
-            incomingConnections: 0,
-            outgoingConnections: 0,
-            connections: []
-          }
-        }));
-        
-        // Clear existing nodes first to avoid conflicts
+        const processedNodes = newNodes.map((node, index) => {
+          // Use provided position if it exists, otherwise calculate optimal position
+          const position = node.position || node.data?.position || calculateNodePosition(index, newNodes.length);
+          
+          return {
+            id: `node-${index}`,
+            type: 'custom',
+            position: {
+              x: position.x,
+              y: position.y
+            },
+            data: {
+              name: node.data?.name || node.name || `Node ${index + 1}`,
+              serviceDist: (node.data?.serviceDist || node.service_distribution || 'deterministic').toLowerCase(),
+              serviceRate: parseFloat(node.data?.serviceRate || node.service_rate || 1),
+              numberOfServers: parseInt(node.data?.numberOfServers || node.number_of_servers || 1),
+              arrivalDist: (node.data?.arrivalDist || node.arrival_distribution || 'deterministic').toLowerCase(),
+              arrivalRate: parseFloat(node.data?.arrivalRate || node.arrival_rate || 0),
+              incomingConnections: 0,
+              outgoingConnections: 0,
+              connections: [],
+              style: {
+                backgroundColor: '#ffffff',
+                borderColor: '#2563eb',
+                borderWidth: 2,
+                borderStyle: 'solid',
+                borderRadius: 8,
+                icon: node.data?.style?.icon || 'Store',
+                iconColor: '#2563eb',
+                ...(node.data?.style || {})
+              }
+            }
+          };
+        });
+
+        // Clear existing nodes first
         setNodes([]);
+        
+        // Set new nodes after a short delay
         setTimeout(() => {
           setNodes(processedNodes);
           configApplied.current = true;
           
-          // Process edges after nodes are set
+          // Process edges if they exist
           if (newEdges && newEdges.length) {
-            setTimeout(() => {
-              const processedEdges = newEdges.map(edge => ({
-                id: edge.id || `edge-${edge.source}-${edge.target}`,
-                source: edge.source,
-                target: edge.target,
-                type: 'smoothstep',
-                animated: true,
-                data: { weight: parseFloat(edge.data?.weight || edge.weight || 0.5) },
-                label: (parseFloat(edge.data?.weight || edge.weight || 0.5)).toFixed(2)
-              }));
-              
-              setEdges(processedEdges);
-              
-              // Update connections and refresh layout
-              setTimeout(() => {
-                const updatedNodes = updateNodeConnections(processedNodes, processedEdges);
-                setNodes(updatedNodes);
-                refreshFlow();
-              }, 100);
-            }, 100);
-          } else {
-            refreshFlow();
+            const processedEdges = newEdges.map(edge => ({
+              id: `edge-${edge.source}-${edge.target}`,
+              source: edge.source,
+              target: edge.target,
+              type: 'smoothstep',
+              animated: true,
+              data: { weight: parseFloat(edge.data?.weight || edge.weight || 0.5) },
+              label: (parseFloat(edge.data?.weight || edge.weight || 0.5)).toFixed(2)
+            }));
+            
+            setEdges(processedEdges);
+            
+            // Update node connections
+            const updatedNodes = updateNodeConnections(processedNodes, processedEdges);
+            setNodes(updatedNodes);
           }
-        }, 100);
-      }
-      else if (newEdges && newEdges.length) {
-        const processedEdges = newEdges.map(edge => ({
-          id: edge.id || `edge-${edge.source}-${edge.target}`,
-          source: edge.source,
-          target: edge.target,
-          type: 'smoothstep',
-          animated: true,
-          data: { weight: parseFloat(edge.data?.weight || edge.weight || 0.5) },
-          label: (parseFloat(edge.data?.weight || edge.weight || 0.5)).toFixed(2)
-        }));
-        
-        setEdges(processedEdges);
-        
-        // Update node connections
-        setTimeout(() => {
-          const updatedNodes = updateNodeConnections(nodes, processedEdges);
-          setNodes(updatedNodes);
+          
           refreshFlow();
         }, 100);
       }
     };
     
     window.addEventListener('ai-configure-nodes', handleAIConfiguration);
-    return () => {
-      window.removeEventListener('ai-configure-nodes', handleAIConfiguration);
-    };
-  }, [nodes, edges, setNodes, setEdges, refreshFlow]);
-
-  // Effect to ensure ReactFlow refreshes after AI configuration
-  useEffect(() => {
-    if (configApplied.current && nodes.length > 0) {
-      const timer = setTimeout(() => {
-        refreshFlow();
-        configApplied.current = false;
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [nodes, refreshFlow]);
-
-  const addNode = () => {
-    const newNodeId = `node-${nodes.length}`;
-    const defaultIcons = ['Storage', 'Store', 'ShoppingCart', 'LocalShipping', 'Inventory'];
-    const randomIcon = defaultIcons[Math.floor(Math.random() * defaultIcons.length)];
-    
-    const newNode = {
-      id: newNodeId,
-      type: 'custom',
-      position: { 
-        x: 100 + Math.random() * 200, 
-        y: 100 + Math.random() * 200 
-      },
-      data: {
-        name: `Node ${nodes.length + 1}`,
-        serviceDist: 'deterministic',
-        serviceRate: 1,
-        numberOfServers: 1,
-        arrivalDist: 'deterministic',
-        arrivalRate: nodes.length === 0 ? 1 : 0,
-        incomingConnections: 0,
-        outgoingConnections: 0,
-        connections: [],
-        style: {
-          backgroundColor: '#ffffff',
-          borderColor: '#e2e8f0',
-          borderWidth: 2,
-          borderStyle: 'solid',
-          borderRadius: 16,
-          icon: randomIcon,
-          iconColor: '#2563eb'
-        }
-      }
-    };
-    
-    setNodes(prevNodes => [...prevNodes, newNode]);
-    setTimeout(refreshFlow, 100);
-  };
+    return () => window.removeEventListener('ai-configure-nodes', handleAIConfiguration);
+  }, [setNodes, setEdges, refreshFlow]);
 
   const onNodeClick = useCallback((_, node) => {
     setSelectedNode(node);
@@ -276,7 +229,6 @@ const NodeConfiguration = () => {
     setIsLoading(true);
     try {
       await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
-      setTimeout(refreshFlow, 100);
     } catch (error) {
       console.error('Error refreshing data:', error);
       setError(error.message || 'Failed to refresh data');
@@ -285,6 +237,42 @@ const NodeConfiguration = () => {
     }
   };
 
+  const loadProjectData = async () => {
+    if (!projectId || initialized.current) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      const success = await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
+      
+      if (success) {
+        initialized.current = true;
+      }
+    } catch (error) {
+      console.error('Error loading project:', error);
+      setError(error.message || 'Failed to load project data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (projectId) {
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          await fetchProjectData(projectId, setEdges, setNodes, updateNodeConnections);
+          setError(null);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadData();
+    }
+  }, [projectId]);
+
   if (isLoading) {
     return (
       <Box sx={{ 
@@ -292,9 +280,12 @@ const NodeConfiguration = () => {
         height: '100vh',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: 2
       }}>
         <CircularProgress />
+        <Typography>Loading project configuration...</Typography>
       </Box>
     );
   }
@@ -323,9 +314,8 @@ const NodeConfiguration = () => {
 
   return (
     <Box 
+      className="app-container" 
       sx={{ 
-        width: '100%',
-        height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
@@ -411,7 +401,9 @@ const NodeConfiguration = () => {
           defaultEdgeOptions={defaultEdgeOptions}
           onInit={instance => {
             reactFlowInstance.current = instance;
-            setTimeout(refreshFlow, 100);
+            setTimeout(() => {
+              instance.fitView({ padding: 0.2 });
+            }, 100);
           }}
           fitView
         >
