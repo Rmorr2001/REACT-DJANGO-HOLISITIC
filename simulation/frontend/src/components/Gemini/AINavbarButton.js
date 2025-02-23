@@ -1,10 +1,13 @@
-// Complete AINavbarButton.js
 import React from 'react';
 import { Button, Tooltip } from '@mui/material';
 import { AutoFixHigh as AIIcon } from '@mui/icons-material';
 import { useAIAssistant } from './AIAssistantContext.js';
+import { useLocation } from 'react-router-dom';
 
 const AINavbarButton = () => {
+  const location = useLocation();
+  const isAboutPage = location.pathname === '/about';
+  
   // Create a fallback in case context is not available
   const defaultOpenAssistant = () => {
     console.warn('openAssistant not available, using fallback');
@@ -22,20 +25,21 @@ const AINavbarButton = () => {
     console.error("Error accessing AI Assistant context:", error);
   }
 
-  // Use white color to contrast with your dark navbar (#041E6A)
   return (
     <Tooltip title="AI Assistant" placement="bottom">
       <Button
         variant="contained"
         onClick={openAssistant}
         sx={{
-          backgroundColor: '#0A2B6A', // Lighter shade than the navbar
-          color: 'white',
+          backgroundColor: isAboutPage ? '#D4AF37' : '#0A2B6A',
+          color: isAboutPage ? '#111111' : 'white',
           padding: '8px 16px',
           margin: '0 4px',
           '&:hover': {
-            backgroundColor: '#0B3A8C', // Slightly lighter on hover
-          }
+            backgroundColor: isAboutPage ? '#F4C460' : '#0B3A8C',
+          },
+          border: isAboutPage ? '1px solid #111111' : 'none',
+          transition: 'all 0.3s ease',
         }}
         startIcon={<AIIcon />}
       >
