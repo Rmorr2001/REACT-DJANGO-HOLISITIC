@@ -156,20 +156,25 @@ When configuring nodes, you can specify their position and visual style. Each no
 }
 \`\`\`
 
-Available Material-UI icons for nodes:
-- Store, ShoppingCart, LocalShipping for retail/logistics
-- Support, Person, Groups for service/customer nodes
-- Settings, Build, Precision for manufacturing/processing
-- Inventory, Storage for warehousing
-- Login, Logout for entrance/exit points
-- And many more standard Material-UI icons
+Available Material-UI icons for nodes (only use these icons):
+- Store: for retail/store locations
+- ShoppingCart: for checkout/purchase points
+- LocalShipping: for delivery/shipping nodes
+- Person: for individual customer service
+- Group: for group/multi-person services
+- Restaurant: for food service locations
+- LocalCafe: for cafe/coffee shop points
+- LocalHospital: for medical/healthcare services
+- School: for educational services
+- AccountBalance: for banking/financial services
 
-Color suggestions:
-- Blue tones (#f0f7ff, #2563eb) for entrance/input nodes
-- Green tones (#f0fdf4, #16a34a) for processing/service nodes
-- Purple tones (#f5f3ff, #7c3aed) for decision/routing nodes
-- Orange tones (#fff7ed, #ea580c) for exit/output nodes
-- Red tones (#fef2f2, #dc2626) for critical/high-priority nodes
+The available presets are - no other color will show up:
+- Blue preset (bg: #f0f7ff, border: #bfdbfe, icon: #2563eb) for entrance/input nodes
+- Green preset (bg: #f0fdf4, border: #bbf7d0, icon: #16a34a) for processing/service nodes
+- Purple preset (bg: #f5f3ff, border: #ddd6fe, icon: #7c3aed) for decision/routing nodes
+- Pink preset (bg: #fdf2f8, border: #fbcfe8, icon: #db2777) for customer service nodes
+- Orange preset (bg: #fff7ed, border: #fed7aa, icon: #ea580c) for exit/output nodes
+- Gray preset (bg: #f8fafc, border: #e2e8f0, icon: #475569) for utility/support nodes
 
 When creating multiple nodes, consider spacing them in a logical flow:
 - Entry points typically start at the left (x: 100-200)
