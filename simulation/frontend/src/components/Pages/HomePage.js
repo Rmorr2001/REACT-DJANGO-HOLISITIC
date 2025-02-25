@@ -25,6 +25,7 @@ import {
   Assessment,
 } from '@mui/icons-material';
 import HomepageChatPreview from './HomepageChatPreview.js';
+import HomepageAnnouncement from './HomepageAnnouncement.js';  
 
 function HomePage() {
   const navigate = useNavigate();
@@ -102,7 +103,7 @@ function HomePage() {
           </Grid>
         </Container>
       </Box>
-
+      <HomepageAnnouncement />
       {/* Use Cases Section */}
       <Container maxWidth="lg" sx={{ py: 6 }}>
         <Typography variant="h4" component="h2" align="center" gutterBottom>

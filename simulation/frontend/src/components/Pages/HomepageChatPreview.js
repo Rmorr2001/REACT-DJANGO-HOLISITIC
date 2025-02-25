@@ -9,19 +9,17 @@ import {
 } from '@mui/material';
 import { Send as SendIcon, AutoFixHigh as AIIcon } from '@mui/icons-material';
 import { useAIAssistant } from '../Gemini/AIAssistantContext.js';
-import { getSystemPrompt } from '../Gemini/AIAssistantUtils.js';
-import { useLocation } from 'react-router-dom';
+import { getSystemPrompt } from '../Gemini/AIPromptUtils.js';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { processAIAction, executeAIAction } from '../Gemini/AIAssistantUtils.js';
 
 const API_KEY = 'AIzaSyCoJEcBZOQZFj-xuwKg9prq5w4LBBSM3NM';
 
-/**
- * A compact version of the AI assistant that appears on the homepage
- * Uses the same processing logic as the main assistant
- */
 const HomepageChatPreview = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [processingResponse, setProcessingResponse] = useState(false);
   const [previewMessages, setPreviewMessages] = useState([
     {
       role: 'assistant',
@@ -35,11 +33,12 @@ const HomepageChatPreview = () => {
   const { 
     openAssistant, 
     setMessages,
-    // Import the processResponse function from the main assistant context
-    processResponse
+    processResponse,
+    userData
   } = useAIAssistant();
   
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -47,20 +46,6 @@ const HomepageChatPreview = () => {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [previewMessages]);
-
-  // Add this function at the top of the component
-  const processMessageContent = async (message) => {
-    if (message.content instanceof Promise) {
-      try {
-        const resolvedContent = await message.content;
-        return resolvedContent;
-      } catch (error) {
-        console.error('Error processing message content:', error);
-        return 'Error processing message';
-      }
-    }
-    return message.content;
-  };
 
   // Handle sending a message - using the main assistant's processing
   const handleSend = async () => {
@@ -78,7 +63,7 @@ const HomepageChatPreview = () => {
     
     try {
       // Get the system prompt from the same utility
-      const systemPrompt = getSystemPrompt(location.pathname, {
+      const systemPrompt = getSystemPrompt(location.pathname, userData || {
         projects: [],
         currentProject: null,
         nodes: [],
@@ -112,15 +97,68 @@ ${userMessage}`
       const data = await response.json();
       const assistantMessage = data.candidates[0].content.parts[0].text;
       
-      // Process the response using the main assistant's processResponse function
-      const processedMessage = await processMessageContent({
-        content: processResponse(assistantMessage)
-      });
-
+      // Add a preliminary message
       setPreviewMessages(prev => [...prev, {
         role: 'assistant',
-        content: processedMessage
+        content: assistantMessage,
+        processing: true
       }]);
+      
+      // Signal that we're processing the response
+      setProcessingResponse(true);
+      
+      // Process the response using the main assistant's processResponse function
+      try {
+        // First check if there's an action in the message
+        const action = processAIAction(assistantMessage);
+        
+        if (action) {
+          // If there's an action, execute it
+          const actionResult = await executeAIAction(action, userData, navigate);
+          
+          let cleanedResponse = assistantMessage.replace(/```action\n[\s\S]*?\n```/g, '').trim();
+          
+          if (actionResult.success) {
+            if (action.type === 'get_simulation_results' || action.type === 'analyze_simulation') {
+              cleanedResponse = actionResult.formattedResults || cleanedResponse;
+            } else {
+              cleanedResponse += `\n${actionResult.message}`;
+            }
+            
+            // Update the message with the processed content
+            setPreviewMessages(prev => prev.map((msg, idx) => 
+              idx === prev.length - 1 ? { role: 'assistant', content: cleanedResponse } : msg
+            ));
+            
+            // If action should open full assistant, transfer messages and open it
+            if (actionResult.shouldOpenFullAssistant) {
+              setMessages(previewMessages);
+              openAssistant();
+            }
+          } else {
+            cleanedResponse += `\nI'm sorry, I couldn't complete that action: ${actionResult.message}`;
+            setPreviewMessages(prev => prev.map((msg, idx) => 
+              idx === prev.length - 1 ? { role: 'assistant', content: cleanedResponse } : msg
+            ));
+          }
+        } else {
+          // If no action, just use the regular processResponse
+          const processedMessage = await processResponse(assistantMessage);
+          
+          // Update the message with the processed content
+          setPreviewMessages(prev => prev.map((msg, idx) => 
+            idx === prev.length - 1 ? { role: 'assistant', content: processedMessage } : msg
+          ));
+        }
+      } catch (processError) {
+        console.error('Error processing response:', processError);
+        // Keep the original message if processing fails
+        setPreviewMessages(prev => prev.map((msg, idx) => 
+          idx === prev.length - 1 ? { role: 'assistant', content: assistantMessage } : msg
+        ));
+      } finally {
+        setProcessingResponse(false);
+      }
     } catch (error) {
       console.error('Error:', error);
       setPreviewMessages(prev => [...prev, {
@@ -148,12 +186,6 @@ ${userMessage}`
     }
   };
 
-  // Add this to your existing styles in the component
-  const chatBoxStyles = {
-    fontFamily: '"Your Desired Font", sans-serif', // Replace with your desired font
-    // Other styles...
-  };
-
   return (
     <Paper 
       elevation={3} 
@@ -163,7 +195,7 @@ ${userMessage}`
         flexDirection: 'column',
         borderRadius: 2,
         overflow: 'hidden',
-        ...chatBoxStyles // Apply the font styles here
+        fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif'
       }}
     >
       {/* Header */}
@@ -193,6 +225,7 @@ ${userMessage}`
           gap: 2,
           bgcolor: 'white',
           height: '240px', // Fixed height to prevent page jumping
+          fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif'
         }}
       >
         {previewMessages.map((message, index) => (
@@ -211,6 +244,8 @@ ${userMessage}`
                 borderRadius: 2,
                 p: 2,
                 boxShadow: 1,
+                position: 'relative',
+                fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif'
               }}
             >
               {message.role === 'assistant' && (
@@ -221,17 +256,21 @@ ${userMessage}`
                   </Typography>
                 </Box>
               )}
-              <Box sx={{ 
-                '& p': { margin: '4px 0' },
-                '& strong': { fontWeight: 'bold' },
-                '& em': { fontStyle: 'italic' }
-              }}>
-                {typeof message.content === 'string' ? (
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
-                ) : (
-                  'Processing...'
-                )}
-              </Box>
+              <div style={{ fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif' }}>
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+              </div>
+              
+              {/* Processing indicator */}
+              {message.processing && (
+                <Box sx={{ 
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  m: 1
+                }}>
+                  <CircularProgress size={16} />
+                </Box>
+              )}
             </Box>
           </Box>
         ))}
@@ -258,27 +297,40 @@ ${userMessage}`
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
             size="small"
-            disabled={isLoading}
+            disabled={isLoading || processingResponse}
             InputProps={{
               endAdornment: (
                 <IconButton 
                   type="submit"
-                  disabled={isLoading || !input.trim()}
+                  disabled={isLoading || processingResponse || !input.trim()}
                   sx={{ color: '#1976d2' }}
                 >
                   {isLoading ? <CircularProgress size={20} /> : <SendIcon />}
                 </IconButton>
-              )
+              ),
+              style: { fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif' }
+            }}
+            inputProps={{
+              style: { fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif' }
             }}
           />
         </form>
+        {processingResponse && (
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={16} />
+            <Typography variant="caption" color="text.secondary">
+              Processing actions...
+            </Typography>
+          </Box>
+        )}
         <Box sx={{ mt: 1, textAlign: 'center' }}>
           <Typography 
             variant="caption" 
             sx={{ 
               color: '#1976d2', 
               cursor: 'pointer', 
-              '&:hover': { textDecoration: 'underline' } 
+              '&:hover': { textDecoration: 'underline' },
+              fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif'
             }}
             onClick={handleOpenFullAssistant}
           >
